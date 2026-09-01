@@ -49,7 +49,7 @@ function init(){
   buildWaste();buildCommon();buildExtras();
   $("quoteNumber").value=nextQuote();
   $("customerName").value="";$("customerPhone").value="";$("customerAddress").value="";$("jobNotes").value="";
-  if(!state.draft)state.draft={waste:{},extras:{},customLabour:0,priceMode:"standard",customPrice:80,paymentMethod:"Cash",paymentStatus:"Outstanding"};
+  if(!state.draft)state.draft={waste:{},extras:{},customLabour:0,priceMode:"standard",customPrice:0,paymentMethod:"Cash",paymentStatus:"Outstanding"};
   bind();
   recalc();
 }
@@ -98,7 +98,10 @@ function getData(){
   const labour=labourBase+extraTotal;
   const totalCost=wasteCost+labour;
   const mode=document.querySelector(".price-options .selected")?.dataset.price||"standard";
-  let quote=totalCost*1.5;if(mode==="plus10")quote=totalCost*1.5*1.1;if(mode==="plus20")quote=totalCost*1.5*1.2;if(mode==="custom")quote=Number($("customPrice").value)||CONFIG.minCharge;
+  let quote=totalCost*1.5;if(mode==="plus10")quote=totalCost*1.5*1.1;if(mode==="plus20")quote=totalCost*1.5*1.2;if(mode==="custom"){
+    const raw=$("customPrice").value;
+    quote=raw==="" ? 0 : Math.max(0, Number(raw)||0);
+  }
   quote=Math.max(0,quote);
   return {waste,extras,extraTotal,wasteCost,labourBase,labour,totalCost,quote,mode};
 }
