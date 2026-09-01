@@ -181,10 +181,9 @@
       <p>Take a photo or choose one from your phone. The AI will identify the visible rubbish, estimate quantities and calculate a customer price.</p>
       <div class="ai-photo-actions">
         <label class="primary ai-upload">📷 TAKE PHOTO<input id="aiCameraInput" type="file" accept="image/*" capture="environment" hidden></label>
-        <label class="ai-upload">🖼️ ADD PHOTOS<input id="aiFileInput" type="file" accept="image/*" multiple hidden></label>
-        <label class="ai-upload">🎥 ADD VIDEO<input id="aiVideoInput" type="file" accept="video/*" capture="environment" hidden></label>
+        <label class="ai-upload">🖼️ UPLOAD PHOTO<input id="aiFileInput" type="file" accept="image/*" hidden></label>
       </div>
-      <div id="aiMediaCount" class="ai-media-count">No photos or video added yet.</div>
+      <div id="aiMediaCount" class="ai-media-count">No photo added yet.</div>
       <div id="aiPreviews" class="ai-previews"></div>
       <div id="aiLoading" class="ai-loading hidden">Looking at the photos/video frames and estimating the rubbish…</div>
       <div id="aiResult" class="ai-result hidden"></div>
@@ -217,6 +216,6 @@
   <div id="toast" class="toast"></div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="app.js?v=20260903-1"></script>
+<script src="app.js?v=20260902-2"></script>
 </body>
 </html>

@@ -97,7 +97,6 @@ function bind(){
   $("closeAiBtn").onclick=closeAiPicture;
   $("aiCameraInput").onchange=handleAiPhoto;
   $("aiFileInput").onchange=handleAiPhoto;
-  $("aiVideoInput").onchange=handleAiVideo;
   $("saveAiLearningBtn").onclick=saveAiLearning;
   $("addAiQuoteBtn").onclick=addAiEstimateToQuote;
   $("savedBtn").onclick=showDashboard;
@@ -327,67 +326,28 @@ function openAiPicture(){
   $("aiActualDisposalCost").value="";
   $("aiLearningStatus").textContent=getAiLearningStatus();
   $("aiLoading").classList.add("hidden");$("aiResult").classList.add("hidden");$("aiResult").innerHTML="";
-  $("aiCameraInput").value="";$("aiFileInput").value="";$("aiVideoInput").value="";
+  $("aiCameraInput").value="";$("aiFileInput").value="";
   $("aiModal").classList.remove("hidden");
 }
 function closeAiPicture(){$("aiModal").classList.add("hidden")}
 function updateAiMediaUi(){
   const count=aiMediaData.length;
-  $("aiMediaCount").textContent=count?`${count} AI ${count===1?'image/frame':'images/frames'} ready to analyse.`:"No photos or video added yet.";
-  $("aiPreviews").innerHTML=aiMediaData.map((m,i)=>m.kind==='video'?`<div class="ai-thumb ai-thumb-video" title="Video sampled into frames">🎥<small>${m.frames} frames</small></div>`:`<img class="ai-thumb" src="${m.data}" alt="AI rubbish image ${i+1}">`).join('');
+  $("aiMediaCount").textContent=count?"1 AI photo ready to analyse.":"No photo added yet.";
+  $("aiPreviews").innerHTML=count?`<img class="ai-thumb" src="${aiMediaData[0].data}" alt="AI rubbish photo">`:"";
 }
-function readFileAsDataUrl(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(new Error('Could not read the file.'));r.readAsDataURL(file)})}
+function readFileAsDataUrl(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(new Error('Could not read the photo.'));r.readAsDataURL(file)})}
 function handleAiPhoto(e){
-  const files=Array.from(e.target.files||[]);
-  if(!files.length)return;
-  addImageFiles(files).then(()=>analyseAiMedia()).catch(err=>toast(err.message||'Could not prepare the photos.'));
-  e.target.value='';
-}
-async function addImageFiles(files){
-  const allowed=files.filter(f=>f.type.startsWith('image/'));
-  if(!allowed.length){toast('Please choose image files');return}
-  const room=Math.max(0,6-aiMediaData.length);
-  if(allowed.length>room)toast(`You can use up to 6 photos/frames per AI estimate.`);
-  for(const file of allowed.slice(0,room)){
-    if(file.size>12*1024*1024){toast('One photo is too large — choose one under 12MB');continue}
-    const data=await readFileAsDataUrl(file);
-    const compressed=await compressAiImage(data);
-    aiMediaData.push({kind:'image',data:compressed});
-  }
-  aiPhotoData=aiMediaData[0]?.data||null;
-  updateAiMediaUi();
-}
-async function handleAiVideo(e){
   const file=e.target.files?.[0];
   e.target.value='';
   if(!file)return;
-  if(!file.type.startsWith('video/')){toast('Please choose a video');return}
-  if(file.size>60*1024*1024){toast('Video is too large — choose one under 60MB');return}
-  try{
-    const frames=await extractVideoFrames(file,4);
-    const room=Math.max(0,6-aiMediaData.length);
-    aiMediaData.push(...frames.slice(0,room).map(data=>({kind:'image',data})));
-    aiMediaData.push({kind:'video',frames:Math.min(frames.length,room)});
-    aiMediaData=aiMediaData.slice(0,7);
-    aiPhotoData=aiMediaData.find(x=>x.kind==='image')?.data||null;
+  if(!file.type.startsWith('image/')){toast('Please choose a photo');return}
+  if(file.size>12*1024*1024){toast('Photo is too large — choose one under 12MB');return}
+  readFileAsDataUrl(file).then(compressAiImage).then(data=>{
+    aiMediaData=[{kind:'image',data}];
+    aiPhotoData=data;
     updateAiMediaUi();
-    await analyseAiMedia();
-  }catch(err){toast(err.message||'Could not process the video.')}
-}
-async function extractVideoFrames(file,count=4){
-  const url=URL.createObjectURL(file);
-  try{
-    const video=document.createElement('video');video.preload='metadata';video.muted=true;video.playsInline=true;video.src=url;
-    await new Promise((resolve,reject)=>{video.onloadedmetadata=resolve;video.onerror=()=>reject(new Error('The video could not be opened.'))});
-    const duration=Number(video.duration)||0;if(!duration)throw new Error('The video has no usable duration.');
-    const times=[0.08,0.34,0.62,0.88].map(x=>Math.min(Math.max(0.05,duration*x),Math.max(0.05,duration-0.05)));
-    const out=[];
-    for(const t of times.slice(0,count)){
-      video.currentTime=t;await new Promise((resolve,reject)=>{video.onseeked=resolve;video.onerror=()=>reject(new Error('Could not read a video frame.'))});
-      const canvas=document.createElement('canvas');const max=960;const scale=Math.min(1,max/Math.max(video.videoWidth,video.videoHeight));canvas.width=Math.max(1,Math.round(video.videoWidth*scale));canvas.height=Math.max(1,Math.round(video.videoHeight*scale));canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);out.push(canvas.toDataURL('image/jpeg',0.5));
-    }
-    return out;
-  }finally{URL.revokeObjectURL(url)}
+    analyseAiMedia();
+  }).catch(err=>toast(err.message||'Could not prepare the photo.'));
 }
 function normaliseAiNumber(v){const n=Number(v);return Number.isFinite(n)&&n>0?n:0}
 function getAiLearning(){try{return JSON.parse(localStorage.getItem('epc_ai_learning')||'[]')}catch{return[]}}
@@ -413,7 +373,7 @@ function renderAiResult(r){
   if(r.waste.mattresses)lines.push(`<li>Mattresses: <strong>${r.waste.mattresses}</strong></li>`);
   if(r.waste.fridges)lines.push(`<li>Fridges: <strong>${r.waste.fridges}</strong></li>`);
   const learning=r.learningAdjustment!==1?`<p class="muted">Learning adjustment: ${r.learningAdjustment.toFixed(2)}× based on your recorded disposal costs.</p>`:'';
-  $("aiResult").innerHTML=`<strong>AI assessment</strong><p>${escapeHtml(r.summary||'Rubbish identified from the supplied media.')}</p><ul>${lines.join('')||'<li>No clear waste category detected — manual quote recommended.</li>'}</ul><p>Confidence: <strong>${escapeHtml(r.confidence||'unknown')}</strong></p>${r.notes?`<p class="muted">${escapeHtml(r.notes)}</p>`:''}${learning}<div class="ai-total">Estimated customer price: ${money(r.quote)}</div>`;
+  $("aiResult").innerHTML=`<strong>AI assessment</strong><p>${escapeHtml(r.summary||'Rubbish identified from the supplied media.')}</p><ul>${lines.join('')||'<li>No clear waste category detected — manual quote recommended.</li>'}</ul><p>Confidence: <strong>${escapeHtml(r.confidence||'unknown')}</strong></p>${r.notes?`<p class="muted">${escapeHtml(r.notes)}</p>`:''}${learning}<div class="ai-total">Actual estimated disposal + labour cost: ${money(r.totalCost)}</div><div class="ai-total">Estimated customer price: ${money(r.quote)}</div>`;
   $("aiResult").classList.remove("hidden");$("addAiQuoteBtn").classList.remove("hidden");$("saveAiLearningBtn").classList.remove("hidden");
   $("aiLearningStatus").textContent=getAiLearningStatus();
 }
@@ -422,28 +382,17 @@ async function compressAiImage(dataUrl){
   return await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const max=820;const scale=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);resolve(canvas.toDataURL('image/jpeg',0.48))};img.onerror=()=>reject(new Error('The photo could not be prepared.'));img.src=dataUrl})
 }
 async function analyseAiMedia(){
-  const images=aiMediaData.filter(m=>m.kind==='image').map(m=>m.data).slice(0,6);
-  if(!images.length){toast('Take or add at least one photo, or add a video');return}
+  const image=aiMediaData[0]?.data||aiPhotoData;
+  if(!image){toast('Take or upload a photo first');return}
   $("aiLoading").classList.remove("hidden");$("aiResult").classList.add("hidden");$("addAiQuoteBtn").classList.add("hidden");$("saveAiLearningBtn").classList.add("hidden");
   try{
     const sessionKey=getGeminiKey();const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),55000);let response;
-    try{response=await fetch('/api/analyse',{cache:'no-store',method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sessionKey?{images,apiKey:sessionKey}:{images}),signal:controller.signal})}finally{clearTimeout(timer)}
+    try{response=await fetch('/api/analyse',{cache:'no-store',method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sessionKey?{image,apiKey:sessionKey}:{image}),signal:controller.signal})}finally{clearTimeout(timer)}
     const text=await response.text();let parsed={};try{parsed=JSON.parse(text)}catch{}
-    if(!response.ok&&/AI service is not configured/i.test(parsed.error||text)){ $("aiLoading").classList.add("hidden");openGeminiKeySetup();return }
     if(!response.ok)throw new Error(parsed.error||`AI server failed (${response.status})`);
     aiEstimate=calculateAiQuote(parsed);renderAiResult(aiEstimate);toast('AI estimate ready');
-  }catch(e){const msg=e?.name==='AbortError'?'The AI server timed out. Try fewer photos or a shorter video.':(e?.message||'AI analysis failed.');$("aiResult").innerHTML=`<strong>AI analysis unavailable</strong><p>${escapeHtml(msg)}</p>`;$("aiResult").classList.remove("hidden")}
+  }catch(e){const msg=e?.name==='AbortError'?'The AI server timed out. Try the photo again.':(e?.message||'AI analysis failed.');$("aiResult").innerHTML=`<strong>AI analysis unavailable</strong><p>${escapeHtml(msg)}</p>`;$("aiResult").classList.remove("hidden")}
   finally{$("aiLoading").classList.add("hidden")}
-}
-function saveAiLearning(){
-  if(!aiEstimate?.waste){toast('Analyse the job first');return}
-  const actual=Number($("aiActualDisposalCost").value);
-  if(!Number.isFinite(actual)||actual<0){toast('Enter your actual disposal cost');return}
-  const predicted=Math.max(0,Number(aiEstimate.rawWasteCost)||0);
-  if(predicted<=0){toast('There was no estimated disposal cost to learn from');return}
-  const ratio=actual/predicted;
-  const rows=getAiLearning();rows.push({date:new Date().toISOString(),actual,predicted,ratio,waste:aiEstimate.waste});localStorage.setItem('epc_ai_learning',JSON.stringify(rows.slice(-100)));
-  aiEstimate.learningSaved=true;$("aiLearningStatus").textContent=`Saved £${actual.toFixed(2)} actual disposal cost. Future AI estimates will use the updated learning factor of ${learnedDisposalMultiplier().toFixed(2)}×.`;toast('Disposal cost saved — AI learning updated');
 }
 function addAiEstimateToQuote(){
   if(!aiEstimate?.waste){toast('Analyse a photo first');return}

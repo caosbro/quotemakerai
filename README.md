@@ -14,6 +14,3 @@ For a more secure permanent setup, Vercel Environment Variables can use `GEMINI_
 
 ## AI estimate
 The app compresses the rubbish photo and sends it to Gemini for image understanding. Gemini returns visible waste categories and estimated quantities; the browser then calculates the customer quote using Evans Property Clearance’s existing pricing rules.
-
-## AI V2 live check
-After deployment, open `/api/ai-estimate-v2` in a browser. A working deployment should return JSON containing `"version":"EPC-AI-V2-20260903"`. This is a GET health check; the quote maker uses POST for the actual image analysis.
