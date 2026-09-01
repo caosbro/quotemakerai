@@ -139,12 +139,12 @@
         </div>
       </div>
       <div class="card">
-        <h2>Saved quotes</h2>
-        <div id="savedList"></div>
+        <h2>🤖 AI disposal-cost learning</h2>
+        <p id="dashboardAiLearning" class="muted">No real disposal costs recorded yet.</p>
       </div>
       <div class="card">
-        <h2>🤖 AI disposal-cost learning</h2>
-        <div id="ownerAiCostInfo" class="muted">No AI disposal-cost estimate recorded yet.</div>
+        <h2>Saved quotes</h2>
+        <div id="savedList"></div>
       </div>
     </section>
   </main>
@@ -182,7 +182,7 @@
     <div class="modal-panel ai-panel">
       <button class="close" id="closeAi">×</button>
       <h2>🤖 AI Rubbish Estimate</h2>
-      <p>Take one or more photos from your phone. The AI will look at all the photos together, estimate the visible rubbish and calculate a customer price.</p>
+      <p>Take one or more photos from your phone. The AI checks each photo using the working AI service and combines the results conservatively.</p>
       <div class="ai-photo-actions">
         <label class="primary ai-upload">📷 TAKE PHOTO<input id="aiCameraInput" type="file" accept="image/*" capture="environment" hidden></label>
         <label class="ai-upload">🖼️ UPLOAD PHOTO<input id="aiFileInput" type="file" accept="image/*" multiple hidden></label>
@@ -200,7 +200,7 @@
         </div>
         <div id="aiLearningStatus" class="muted"></div>
       </div>
-      <div class="ai-disclaimer">AI estimates are approximate. Use several photos from different angles for better coverage. Check the result and adjust the quote before sending it to the customer.</div>
+      <div class="ai-disclaimer">AI estimates are approximate. Multiple photos give better coverage. Check the result and adjust the quote before sending it to the customer.</div>
       <button id="addAiQuoteBtn" class="primary hidden">ADD ESTIMATE TO QUOTE</button>
       <button id="closeAiBtn">CLOSE</button>
     </div>

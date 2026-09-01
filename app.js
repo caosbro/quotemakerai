@@ -191,6 +191,7 @@ function renderDashboard(){
   const weekly=state.filter(q=>new Date(q.date)>=weekStart).reduce((s,q)=>s+q.profit,0);
   const monthly=state.filter(q=>{const d=new Date(q.date);return d.getMonth()===month&&d.getFullYear()===now.getFullYear()}).reduce((s,q)=>s+q.profit,0);
   $("dailyProfit").textContent=money(daily);$("weeklyProfit").textContent=money(weekly);$("monthlyProfit").textContent=money(monthly);$("outstandingTotal").textContent=money(outstanding);
+  if($("dashboardAiLearning")) $("dashboardAiLearning").textContent=getAiLearningStatus();
   const wk=state.filter(q=>new Date(q.date)>=weekStart),quoted=wk.reduce((s,q)=>s+q.quote,0),paidTotal=wk.filter(paid).reduce((s,q)=>s+q.quote,0),out=wk.filter(q=>q.paymentStatus? q.paymentStatus==="Outstanding" : q.payment==="Outstanding").reduce((s,q)=>s+q.quote,0),profit=wk.reduce((s,q)=>s+q.profit,0);
   $("weekQuoted").textContent=money(quoted);$("weekPaid").textContent=money(paidTotal);$("weekOutstanding").textContent=money(out);$("weekProfit").textContent=money(profit);
   $("savedList").innerHTML=state.length?state.map((q,i)=>`<div class="quote-record"><strong>${q.number} — ${q.name||"No name"}</strong><div class="muted">${q.documentType||"Quote"} · ${new Date(q.date).toLocaleDateString("en-GB")} · ${q.paymentStatus?`${q.paymentMethod} · ${q.paymentStatus}`:q.payment}</div><div>${money(q.quote)} · Profit ${money(q.profit)}</div><div class="record-actions"><button data-view="${i}">CUSTOMER VIEW</button><button data-cost="${i}">SHOW MY COSTS</button></div></div>`).join(""):"<p>No saved quotes yet.</p>";
@@ -320,7 +321,7 @@ function openAiPicture(){
   aiPhotoData=null;aiMediaData=[];aiEstimate=null;
   $("aiPreview")?.classList.add("hidden");
   $("aiPreviews").innerHTML="";
-  $("aiMediaCount").textContent="No photos or video added yet.";
+  $("aiMediaCount").textContent="No photos added yet.";
   $("addAiQuoteBtn").classList.add("hidden");
   $("saveAiLearningBtn").classList.add("hidden");
   $("aiActualDisposalCost").value="";
@@ -333,13 +334,11 @@ function closeAiPicture(){$("aiModal").classList.add("hidden")}
 function updateAiMediaUi(){
   const count=aiMediaData.length;
   $("aiMediaCount").textContent=count?`${count} photo${count===1?'':'s'} ready to analyse.`:"No photos added yet.";
-  $("aiPreviews").innerHTML=count?aiMediaData.map((m,i)=>`<div><img class="ai-thumb" src="${m.data}" alt="AI rubbish photo ${i+1}"></div>`).join(''):"";
+  $("aiPreviews").innerHTML=count?aiMediaData.map((m,i)=>`<div><img class="ai-thumb" src="${m.data}" alt="AI rubbish photo ${i+1}"></div>`).join(''):'';
 }
 function readFileAsDataUrl(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(new Error('Could not read the photo.'));r.readAsDataURL(file)})}
 async function handleAiPhoto(e){
-  const files=Array.from(e.target.files||[]);
-  e.target.value='';
-  if(!files.length)return;
+  const files=Array.from(e.target.files||[]);e.target.value='';if(!files.length)return;
   const images=files.filter(f=>f.type.startsWith('image/'));
   if(!images.length){toast('Please choose photos');return}
   if(images.length>6){toast('Please choose up to 6 photos at a time');return}
@@ -348,63 +347,69 @@ async function handleAiPhoto(e){
     const prepared=[];
     for(const file of images){const raw=await readFileAsDataUrl(file);prepared.push(await compressAiImage(raw));}
     aiMediaData=prepared.map(data=>({kind:'image',data}));
-    aiPhotoData=prepared[0]||null;
-    updateAiMediaUi();
-    analyseAiMedia();
+    aiPhotoData=prepared[0]||null;updateAiMediaUi();analyseAiMedia();
   }catch(err){toast(err.message||'Could not prepare the photos.')}
 }
 function normaliseAiNumber(v){const n=Number(v);return Number.isFinite(n)&&n>0?n:0}
-function getAiLearning(){try{return JSON.parse(localStorage.getItem('epc_ai_learning')||'[]')}catch{return[]}}
+function getAiLearning(){try{const rows=JSON.parse(localStorage.getItem('epc_ai_learning')||'[]');return Array.isArray(rows)?rows:[]}catch{return[]}}
 function learnedDisposalMultiplier(){
   const rows=getAiLearning();if(!rows.length)return 1;
-  const usable=rows.filter(r=>Number.isFinite(r.ratio)&&r.ratio>0).slice(-30);
+  const usable=rows.filter(r=>Number.isFinite(Number(r.ratio))&&Number(r.ratio)>0).slice(-30);
   if(!usable.length)return 1;
-  const weighted=usable.reduce((a,r,i)=>{const w=0.5+(i+1)/usable.length;return {sum:a.sum+r.ratio*w,weight:a.weight+w}},{sum:0,weight:0});
+  const weighted=usable.reduce((a,r,i)=>{const w=0.5+(i+1)/usable.length;return {sum:a.sum+Number(r.ratio)*w,weight:a.weight+w}},{sum:0,weight:0});
   return Math.min(2.5,Math.max(0.5,weighted.sum/weighted.weight));
 }
 function getAiLearningStatus(){const rows=getAiLearning();return rows.length?`${rows.length} real disposal ${rows.length===1?'job':'jobs'} recorded · future estimates use a ${learnedDisposalMultiplier().toFixed(2)}× disposal-cost adjustment.`:'No real disposal costs recorded yet — the AI will start learning after your first saved job.'}
 function calculateAiQuote(r){
   const waste={mixed:normaliseAiNumber(r.mixed_tonnes),wood:normaliseAiNumber(r.wood_tonnes),soil:normaliseAiNumber(r.soil_tonnes),rubble:normaliseAiNumber(r.rubble_tonnes),mattresses:Math.round(normaliseAiNumber(r.mattresses)),fridges:Math.round(normaliseAiNumber(r.fridges))};
   const rawWasteCost=Object.entries(waste).reduce((sum,[k,v])=>sum+v*CONFIG.waste[k].price,0);
-  const adjustment=learnedDisposalMultiplier();
-  const wasteCost=rawWasteCost*adjustment;
+  const adjustment=learnedDisposalMultiplier(),wasteCost=rawWasteCost*adjustment;
   const labourBase=jobType(waste),totalCost=wasteCost+labourBase,quote=Math.max(0,totalCost*1.5);
   return {...r,waste,rawWasteCost,wasteCost,learningAdjustment:adjustment,labourBase,totalCost,quote};
 }
+function mergeAiEstimates(results){
+  const keys=['mixed_tonnes','wood_tonnes','soil_tonnes','rubble_tonnes','mattresses','fridges'];
+  const merged={summary:`Combined estimate from ${results.length} photos. The same rubbish may appear in more than one view, so repeated categories are kept conservative.`,confidence:'medium',notes:'Multiple photos analysed individually using the working AI endpoint; repeated views are not simply added together.'};
+  for(const key of keys)merged[key]=results.reduce((max,r)=>Math.max(max,normaliseAiNumber(r[key])),0);
+  const conf=results.map(r=>String(r.confidence||'').toLowerCase());
+  if(conf.length&&conf.every(x=>x==='high'))merged.confidence='high';
+  if(conf.some(x=>x==='low'))merged.confidence='low';
+  return merged;
+}
 function renderAiResult(r){
-  const lines=[];const labels={mixed:'Mixed waste',wood:'Wood',soil:'Soil',rubble:'Rubble'};
-  for(const [k,label] of Object.entries(labels)){if(r.waste[k]>0)lines.push(`<li>${label}: <strong>${r.waste[k]} tonne${r.waste[k]===1?'':'s'}</strong></li>`) }
-  if(r.waste.mattresses)lines.push(`<li>Mattresses: <strong>${r.waste.mattresses}</strong></li>`);
-  if(r.waste.fridges)lines.push(`<li>Fridges: <strong>${r.waste.fridges}</strong></li>`);
+  const lines=[],labels={mixed:'Mixed waste',wood:'Wood',soil:'Soil',rubble:'Rubble'};
+  for(const [k,label] of Object.entries(labels)){if(r.waste[k]>0)lines.push(`<li>${label}: <strong>${r.waste[k]} tonne${r.waste[k]===1?'':'s'}</strong></li>`)}
+  if(r.waste.mattresses)lines.push(`<li>Mattresses: <strong>${r.waste.mattresses}</strong></li>`);if(r.waste.fridges)lines.push(`<li>Fridges: <strong>${r.waste.fridges}</strong></li>`);
   const learning=r.learningAdjustment!==1?`<p class="muted">Learning adjustment: ${r.learningAdjustment.toFixed(2)}× based on your recorded disposal costs.</p>`:'';
-  $("aiResult").innerHTML=`<strong>AI assessment</strong><p>${escapeHtml(r.summary||'Rubbish identified from the supplied photos.')}</p><ul>${lines.join('')||'<li>No clear waste category detected — manual quote recommended.</li>'}</ul><p>Confidence: <strong>${escapeHtml(r.confidence||'unknown')}</strong></p>${r.notes?`<p class="muted">${escapeHtml(r.notes)}</p>`:''}${learning}<div class="ai-total">Estimated customer price: ${money(r.quote)}</div>`;
-  localStorage.setItem('epc_latest_ai_owner_cost',JSON.stringify({totalCost:r.totalCost,wasteCost:r.wasteCost,labourBase:r.labourBase,rawWasteCost:r.rawWasteCost,learningAdjustment:r.learningAdjustment,quote:r.quote,at:new Date().toISOString()}));
-  renderOwnerAiCost();
-  $("aiResult").classList.remove("hidden");$("addAiQuoteBtn").classList.remove("hidden");$("saveAiLearningBtn").classList.remove("hidden");
-  $("aiLearningStatus").textContent=getAiLearningStatus();
+  $("aiResult").innerHTML=`<strong>AI assessment</strong><p>${escapeHtml(r.summary||'Rubbish identified from the supplied photos.')}</p><ul>${lines.join('')||'<li>No clear waste category detected — manual quote recommended.</li>'}</ul><p>Confidence: <strong>${escapeHtml(r.confidence||'unknown')}</strong></p>${r.notes?`<p class="muted">${escapeHtml(r.notes)}</p>`:''}${learning}<div class="ai-total">Estimated disposal + labour cost: ${money(r.totalCost)}</div><div class="ai-total">Estimated customer price: ${money(r.quote)}</div>`;
+  $("aiResult").classList.remove("hidden");$("addAiQuoteBtn").classList.remove("hidden");$("saveAiLearningBtn").classList.remove("hidden");$("aiLearningStatus").textContent=getAiLearningStatus();
 }
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 async function compressAiImage(dataUrl){
-  return await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const max=680;const scale=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);resolve(canvas.toDataURL('image/jpeg',0.42))};img.onerror=()=>reject(new Error('The photo could not be prepared.'));img.src=dataUrl})
+  return await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const max=680,scale=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);resolve(canvas.toDataURL('image/jpeg',0.42))};img.onerror=()=>reject(new Error('The photo could not be prepared.'));img.src=dataUrl})
 }
-async function analyseAiMedia(){
-  const images=aiMediaData.filter(x=>x.kind==='image').map(x=>x.data);
-  if(!images.length){toast('Take or upload at least one photo first');return}
-  $("aiLoading").classList.remove("hidden");$("aiResult").classList.add("hidden");$("addAiQuoteBtn").classList.add("hidden");$("saveAiLearningBtn").classList.add("hidden");
+async function analyseOneAiImage(image, index, total){
+  const sessionKey=getGeminiKey(),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),55000);
   try{
-    const sessionKey=getGeminiKey();const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),70000);let response;
-    try{response=await fetch('/api/analyse',{cache:'no-store',method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sessionKey?{images,apiKey:sessionKey}:{images}),signal:controller.signal})}finally{clearTimeout(timer)}
+    const response=await fetch('/api/analyse',{cache:'no-store',method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sessionKey?{image,apiKey:sessionKey}:{image}),signal:controller.signal});
     const text=await response.text();let parsed={};try{parsed=JSON.parse(text)}catch{}
     if(!response.ok)throw new Error(parsed.error||`AI server failed (${response.status})`);
-    aiEstimate=calculateAiQuote(parsed);renderAiResult(aiEstimate);toast('AI estimate ready');
+    return parsed;
+  }finally{clearTimeout(timer)}
+}
+async function analyseAiMedia(){
+  const images=aiMediaData.filter(x=>x.kind==='image').map(x=>x.data);if(!images.length){toast('Take or upload at least one photo first');return}
+  $("aiLoading").classList.remove("hidden");$("aiResult").classList.add("hidden");$("addAiQuoteBtn").classList.add("hidden");$("saveAiLearningBtn").classList.add("hidden");
+  try{
+    const results=[];
+    for(let i=0;i<images.length;i++){
+      $("aiLoading").textContent=`Looking at photo ${i+1} of ${images.length}…`;
+      results.push(await analyseOneAiImage(images[i],i,images.length));
+    }
+    aiEstimate=calculateAiQuote(mergeAiEstimates(results));renderAiResult(aiEstimate);toast('All photos analysed ✓');
   }catch(e){const msg=e?.name==='AbortError'?'The AI server timed out. Try the photos again.':(e?.message||'AI analysis failed.');$("aiResult").innerHTML=`<strong>AI analysis unavailable</strong><p>${escapeHtml(msg)}</p>`;$("aiResult").classList.remove("hidden")}
-  finally{$("aiLoading").classList.add("hidden")}
+  finally{$("aiLoading").classList.add("hidden");$("aiLoading").textContent='Looking at all photos and estimating the rubbish…'}
 }
-function renderOwnerAiCost(){
-  const el=$("ownerAiCostInfo"); if(!el)return;
-  try{const r=JSON.parse(localStorage.getItem('epc_latest_ai_owner_cost')||'null');if(!r){el.textContent='No AI disposal-cost estimate recorded yet.';return} el.innerHTML=`Estimated disposal: <strong>${money(r.wasteCost||0)}</strong><br>Labour: <strong>${money(r.labourBase||0)}</strong><br>Total estimated cost: <strong>${money(r.totalCost||0)}</strong><br>Learning adjustment: <strong>${Number(r.learningAdjustment||1).toFixed(2)}×</strong><br><span class="muted">Updated ${new Date(r.at).toLocaleString()}</span>`}catch{el.textContent='No AI disposal-cost estimate recorded yet.'}
-}
-
 function addAiEstimateToQuote(){
   if(!aiEstimate?.waste){toast('Analyse a photo first');return}
   for(const [key,val] of Object.entries(aiEstimate.waste)){const input=$(`[data-key="${key}"] [data-qty]`);if(input)input.value=cleanNum((Number(input.value)||0)+val)}
@@ -413,4 +418,3 @@ function addAiEstimateToQuote(){
 
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 init();
-renderOwnerAiCost();
