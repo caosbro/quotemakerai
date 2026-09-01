@@ -427,7 +427,7 @@ async function analyseAiMedia(){
   $("aiLoading").classList.remove("hidden");$("aiResult").classList.add("hidden");$("addAiQuoteBtn").classList.add("hidden");$("saveAiLearningBtn").classList.add("hidden");
   try{
     const sessionKey=getGeminiKey();const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),55000);let response;
-    try{response=await fetch('/api/analyse',{cache:'no-store',method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sessionKey?{images,apiKey:sessionKey}:{images}),signal:controller.signal})}finally{clearTimeout(timer)}
+    try{response=await fetch('/api/ai-estimate-v2',{cache:'no-store',method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sessionKey?{images,apiKey:sessionKey}:{images}),signal:controller.signal})}finally{clearTimeout(timer)}
     const text=await response.text();let parsed={};try{parsed=JSON.parse(text)}catch{}
     if(!response.ok&&/AI service is not configured/i.test(parsed.error||text)){ $("aiLoading").classList.add("hidden");openGeminiKeySetup();return }
     if(!response.ok)throw new Error(parsed.error||`AI server failed (${response.status})`);
