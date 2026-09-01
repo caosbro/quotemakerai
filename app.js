@@ -21,6 +21,36 @@ const CONFIG={
     "Chest of Drawers":"0.05 t","Black Bags":"0.02 t each","Carpet":"0.05 t","Garden Waste":"0.08 t","Builders Waste":"0.10 t"
   }
 };
+const DEFAULT_DISPOSAL_COSTS=Object.fromEntries(Object.entries(CONFIG.waste).map(([k,v])=>[k,v.price]));
+function loadDisposalCosts(){
+  try{
+    const saved=JSON.parse(localStorage.getItem("epc_disposal_costs")||"null");
+    if(saved&&typeof saved==="object"){
+      Object.keys(CONFIG.waste).forEach(k=>{const n=Number(saved[k]);if(Number.isFinite(n)&&n>=0)CONFIG.waste[k].price=n;});
+    }
+  }catch{}
+}
+function renderDisposalCostSettings(){
+  const el=$("disposalCostSettings");
+  if(!el)return;
+  el.innerHTML=Object.entries(CONFIG.waste).map(([key,w])=>`<label class="cost-setting-row"><span>${w.label} <small>(${w.unit})</small></span><input data-disposal-cost="${key}" type="number" min="0" step="0.01" inputmode="decimal" value="${w.price}"></label>`).join("");
+}
+function saveDisposalCosts(){
+  const saved={};
+  document.querySelectorAll("[data-disposal-cost]").forEach(input=>{
+    const key=input.dataset.disposalCost;
+    const n=Number(input.value);
+    if(!Number.isFinite(n)||n<0){toast(`Enter a valid cost for ${CONFIG.waste[key].label}`);return;}
+    saved[key]=Math.round(n*100)/100;
+  });
+  if(Object.keys(saved).length!==Object.keys(CONFIG.waste).length)return;
+  Object.entries(saved).forEach(([k,v])=>CONFIG.waste[k].price=v);
+  localStorage.setItem("epc_disposal_costs",JSON.stringify(saved));
+  buildWaste();
+  recalc();
+  toast("Disposal costs saved ✓");
+}
+loadDisposalCosts();
 let state=loadState();
 const $=sel=> sel.startsWith("#")?document.querySelector(sel): (sel.includes("[")||sel.includes(".")||sel.includes(" "))?document.querySelector(sel):document.getElementById(sel);
 const money=n=>new Intl.NumberFormat("en-GB",{style:"currency",currency:"GBP"}).format(Number(n)||0);
@@ -66,7 +96,7 @@ function buildExtras(){
   $("extras").innerHTML=extras.map(([n,v])=>`<button data-extra="${n}" data-value="${v}">${n}<span>+${money(v)}</span></button>`).join("");
 }
 function init(){
-  buildWaste();buildCommon();buildExtras();
+  buildWaste();buildCommon();buildExtras();renderDisposalCostSettings();
   $("quoteNumber").value=nextQuote();
   $("customerName").value="";$("customerPhone").value="";$("customerAddress").value="";$("jobNotes").value="";
   if(!state.draft)state.draft={waste:{},extras:{},customLabour:0,priceMode:"standard",customPrice:0,paymentMethod:"Cash",paymentStatus:"Outstanding",documentType:"Quote"};
@@ -86,6 +116,7 @@ function bind(){
   $("calculateBtn").onclick=()=>{recalc();toast("Quote calculated")};
   $("clearBtn").onclick=clearQuote;
   $("saveBtn").onclick=saveQuote;
+  $("saveDisposalCostsBtn").onclick=saveDisposalCosts;
   $("whatsappBtn").onclick=sendWhatsApp;
   $("pdfBtn").onclick=makePdfQuote;
   $("customerPdfBtn").onclick=makePdfQuote;
@@ -349,6 +380,19 @@ async function handleAiPhoto(e){
     aiMediaData=prepared.map(data=>({kind:'image',data}));
     aiPhotoData=prepared[0]||null;updateAiMediaUi();analyseAiMedia();
   }catch(err){toast(err.message||'Could not prepare the photos.')}
+}
+function saveAiLearning(){
+  if(!aiEstimate?.waste){toast("Analyse a photo first");return}
+  const actual=Number($("aiActualDisposalCost").value);
+  if(!Number.isFinite(actual)||actual<0){toast("Enter the actual disposal cost first");return}
+  const estimated=Number(aiEstimate.rawWasteCost)||0;
+  if(estimated<=0){toast("There is no estimated disposal cost to learn from on this job");return}
+  const rows=getAiLearning();
+  rows.push({date:new Date().toISOString(),actualCost:Math.round(actual*100)/100,estimatedCost:Math.round(estimated*100)/100,ratio:actual/estimated,waste:aiEstimate.waste});
+  localStorage.setItem("epc_ai_learning",JSON.stringify(rows.slice(-100)));
+  $("aiActualDisposalCost").value="";
+  $("aiLearningStatus").textContent=getAiLearningStatus();
+  toast("Actual disposal cost saved ✓");
 }
 function normaliseAiNumber(v){const n=Number(v);return Number.isFinite(n)&&n>0?n:0}
 function getAiLearning(){try{const rows=JSON.parse(localStorage.getItem('epc_ai_learning')||'[]');return Array.isArray(rows)?rows:[]}catch{return[]}}
