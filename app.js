@@ -419,7 +419,7 @@ function renderAiResult(r){
 }
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 async function compressAiImage(dataUrl){
-  return await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const max=960;const scale=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);resolve(canvas.toDataURL('image/jpeg',0.55))};img.onerror=()=>reject(new Error('The photo could not be prepared.'));img.src=dataUrl})
+  return await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const max=820;const scale=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);resolve(canvas.toDataURL('image/jpeg',0.48))};img.onerror=()=>reject(new Error('The photo could not be prepared.'));img.src=dataUrl})
 }
 async function analyseAiMedia(){
   const images=aiMediaData.filter(m=>m.kind==='image').map(m=>m.data).slice(0,6);
