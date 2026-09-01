@@ -1,6 +1,6 @@
 const CONFIG={
   pin:"2460",
-  minCharge:80,
+  minCharge:0,
   multiplier:1.5,
   waste:{
     mixed:{label:"Mixed Waste",unit:"tonne",price:170},
@@ -99,7 +99,7 @@ function getData(){
   const totalCost=wasteCost+labour;
   const mode=document.querySelector(".price-options .selected")?.dataset.price||"standard";
   let quote=totalCost*1.5;if(mode==="plus10")quote=totalCost*1.5*1.1;if(mode==="plus20")quote=totalCost*1.5*1.2;if(mode==="custom")quote=Number($("customPrice").value)||CONFIG.minCharge;
-  quote=Math.max(CONFIG.minCharge,quote);
+  quote=Math.max(0,quote);
   return {waste,extras,extraTotal,wasteCost,labourBase,labour,totalCost,quote,mode};
 }
 function jobType(w){
@@ -296,7 +296,7 @@ function normaliseAiNumber(v){const n=Number(v);return Number.isFinite(n)&&n>0?n
 function calculateAiQuote(r){
   const waste={mixed:normaliseAiNumber(r.mixed_tonnes),wood:normaliseAiNumber(r.wood_tonnes),soil:normaliseAiNumber(r.soil_tonnes),rubble:normaliseAiNumber(r.rubble_tonnes),mattresses:Math.round(normaliseAiNumber(r.mattresses)),fridges:Math.round(normaliseAiNumber(r.fridges))};
   const wasteCost=Object.entries(waste).reduce((sum,[k,v])=>sum+v*CONFIG.waste[k].price,0);
-  const labourBase=jobType(waste),totalCost=wasteCost+labourBase,quote=Math.max(CONFIG.minCharge,totalCost*1.5);
+  const labourBase=jobType(waste),totalCost=wasteCost+labourBase,quote=Math.max(0,totalCost*1.5);
   return {...r,waste,wasteCost,labourBase,totalCost,quote};
 }
 function renderAiResult(r){
