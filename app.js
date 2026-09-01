@@ -27,7 +27,27 @@ const money=n=>new Intl.NumberFormat("en-GB",{style:"currency",currency:"GBP"}).
 const todayISO=()=>new Date().toISOString();
 function loadState(){return JSON.parse(localStorage.getItem("epc_quotes")||"[]")}
 function saveState(){localStorage.setItem("epc_quotes",JSON.stringify(state))}
-function nextQuote(){let max=state.reduce((m,q)=>Math.max(m,parseInt((q.number||"").split("-").pop())||0),0)+1;return `EPC-${new Date().getFullYear()}-${String(max).padStart(5,"0")}`}
+function nextDocumentNumber(type="Quote"){
+  const prefix=type==="Invoice"?"EPC-I":"EPC-Q";
+  const max=state.reduce((m,q)=>{
+    const n=String(q.number||"");
+    if((type==="Invoice" && n.startsWith("EPC-I-")) || (type!=="Invoice" && (n.startsWith("EPC-Q-") || (!n.startsWith("EPC-I-") && n.startsWith("EPC-"))))){
+      return Math.max(m,parseInt(n.split("-").pop())||0);
+    }
+    return m;
+  },0)+1;
+  return `${prefix}-${new Date().getFullYear()}-${String(max).padStart(5,"0")}`;
+}
+function nextQuote(){return nextDocumentNumber("Quote")}
+function getDocumentType(){return document.querySelector("[data-document-type].selected")?.dataset.documentType||"Quote"}
+function updateDocumentType(){
+  const type=getDocumentType();
+  const label=type==="Invoice"?"Invoice · payment record / amount due":"Quote · customer price proposal";
+  if($("documentTypeStatus")) $("documentTypeStatus").textContent=label;
+  if($("quoteNumber")) $("quoteNumber").value=nextDocumentNumber(type);
+  if($("pdfBtn")) $("pdfBtn").textContent=type==="Invoice"?"MAKE PDF INVOICE":"MAKE PDF QUOTE";
+  if($("customerPdfBtn")) $("customerPdfBtn").textContent=type==="Invoice"?"MAKE PDF INVOICE":"MAKE PDF QUOTE";
+}
 function toast(t){const e=$("toast");e.textContent=t;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),1800)}
 function buildWaste(){
   $("wasteRows").innerHTML=Object.entries(CONFIG.waste).map(([key,w])=>{
@@ -49,7 +69,7 @@ function init(){
   buildWaste();buildCommon();buildExtras();
   $("quoteNumber").value=nextQuote();
   $("customerName").value="";$("customerPhone").value="";$("customerAddress").value="";$("jobNotes").value="";
-  if(!state.draft)state.draft={waste:{},extras:{},customLabour:0,priceMode:"standard",customPrice:0,paymentMethod:"Cash",paymentStatus:"Outstanding"};
+  if(!state.draft)state.draft={waste:{},extras:{},customLabour:0,priceMode:"standard",customPrice:0,paymentMethod:"Cash",paymentStatus:"Outstanding",documentType:"Quote"};
   bind();
   recalc();
 }
@@ -59,6 +79,7 @@ function bind(){
   $("commonItems").onclick=e=>{const b=e.target.closest("[data-common]");if(!b)return;const name=b.dataset.common;const kg=CONFIG.common[name];let target="mixed";if(name.includes("Mattress"))target="mattresses";if(name==="Fridge Freezer")target="fridges";if(target==="mixed"){$(`[data-key="${target}"] [data-qty]`).value=cleanNum((Number($(`[data-key="${target}"] [data-qty]`).value)||0)+kg)}else{$(`[data-key="${target}"] [data-qty]`).value=cleanNum((Number($(`[data-key="${target}"] [data-qty]`).value)||0)+1)}recalc();toast(`${name} added`)};
   $("extras").onclick=e=>{const b=e.target.closest("[data-extra]");if(!b)return;b.classList.toggle("active");recalc()};
   document.querySelectorAll(".price-options button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".price-options button").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");$("customPriceWrap").classList.toggle("hidden",b.dataset.price!=="custom");recalc()});
+  document.querySelectorAll("[data-document-type]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-document-type]").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");updateDocumentType();recalc()});
   document.querySelectorAll("[data-payment-method]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-payment-method]").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");updatePaymentSummary()});
   document.querySelectorAll("[data-payment-status]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-payment-status]").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");updatePaymentSummary()});
   ["customerName","customerPhone","customerAddress","jobNotes","customLabour","customPrice"].forEach(id=>$(id).addEventListener("input",recalc));
@@ -87,6 +108,7 @@ function bind(){
   $("dashboardBack").onclick=()=>showScreen("ownerScreen");
   $("pinCancel").onclick=()=>$("pinModal").classList.add("hidden");
   $("pinSubmit").onclick=checkPin;
+  updateDocumentType();
 }
 function cleanNum(n){return Math.round(n*1000)/1000}
 function getData(){
@@ -116,9 +138,11 @@ function clearQuote(){
   document.querySelectorAll("[data-qty]").forEach(i=>i.value=0);
   document.querySelectorAll("#extras [data-extra].active").forEach(b=>b.classList.remove("active"));
   ["customerName","customerPhone","customerAddress","jobNotes","customLabour","customPrice"].forEach(id=>{const e=$(id); if(e) e.value="";});
-  document.querySelectorAll(".price-options button,[data-payment-method],[data-payment-status]").forEach(b=>b.classList.remove("selected"));
+  document.querySelectorAll(".price-options button,[data-document-type],[data-payment-method],[data-payment-status]").forEach(b=>b.classList.remove("selected"));
+  document.querySelector('[data-document-type="Quote"]').classList.add("selected");
   if($("paymentStatus")) $("paymentStatus").textContent="Outstanding";
   if($("customPriceWrap")) $("customPriceWrap").classList.add("hidden");
+  updateDocumentType();
   recalc();
   toast("Quote cleared");
 }
@@ -142,7 +166,8 @@ function showDashboard(){ $("pinInput").value="";$("pinModal").classList.remove(
 function checkPin(){if($("pinInput").value===CONFIG.pin){$("pinModal").classList.add("hidden");renderDashboard();showScreen("dashboardScreen")}else toast("Incorrect PIN")}
 function saveQuote(){
   const d=getData();const p=getPayment();
-  const q={number:$("quoteNumber").value||nextQuote(),date:todayISO(),name:$("customerName").value.trim(),phone:$("customerPhone").value.trim(),address:$("customerAddress").value.trim(),notes:$("jobNotes").value.trim(),paymentMethod:p.method,paymentStatus:p.status,payment:`${p.method} · ${p.status}`,quote:d.quote,cost:d.totalCost,profit:d.quote-d.totalCost,waste:d.waste,labour:d.labour,labourBase:d.labourBase,extraLabour:d.extraTotal};
+  const documentType=getDocumentType();
+  const q={number:$("quoteNumber").value||nextDocumentNumber(documentType),documentType,date:todayISO(),name:$("customerName").value.trim(),phone:$("customerPhone").value.trim(),address:$("customerAddress").value.trim(),notes:$("jobNotes").value.trim(),paymentMethod:p.method,paymentStatus:p.status,payment:`${p.method} · ${p.status}`,quote:d.quote,cost:d.totalCost,profit:d.quote-d.totalCost,waste:d.waste,labour:d.labour,labourBase:d.labourBase,extraLabour:d.extraTotal};
   if(!q.name&&!q.address)toast("Add customer details first");
   state.unshift(q);saveState();$("quoteNumber").value=nextQuote();toast("Quote saved");return q;
 }
@@ -167,7 +192,7 @@ function renderDashboard(){
   $("dailyProfit").textContent=money(daily);$("weeklyProfit").textContent=money(weekly);$("monthlyProfit").textContent=money(monthly);$("outstandingTotal").textContent=money(outstanding);
   const wk=state.filter(q=>new Date(q.date)>=weekStart),quoted=wk.reduce((s,q)=>s+q.quote,0),paidTotal=wk.filter(paid).reduce((s,q)=>s+q.quote,0),out=wk.filter(q=>q.paymentStatus? q.paymentStatus==="Outstanding" : q.payment==="Outstanding").reduce((s,q)=>s+q.quote,0),profit=wk.reduce((s,q)=>s+q.profit,0);
   $("weekQuoted").textContent=money(quoted);$("weekPaid").textContent=money(paidTotal);$("weekOutstanding").textContent=money(out);$("weekProfit").textContent=money(profit);
-  $("savedList").innerHTML=state.length?state.map((q,i)=>`<div class="quote-record"><strong>${q.number} — ${q.name||"No name"}</strong><div class="muted">${new Date(q.date).toLocaleDateString("en-GB")} · ${q.paymentStatus?`${q.paymentMethod} · ${q.paymentStatus}`:q.payment}</div><div>${money(q.quote)} · Profit ${money(q.profit)}</div><div class="record-actions"><button data-view="${i}">CUSTOMER VIEW</button><button data-cost="${i}">SHOW MY COSTS</button></div></div>`).join(""):"<p>No saved quotes yet.</p>";
+  $("savedList").innerHTML=state.length?state.map((q,i)=>`<div class="quote-record"><strong>${q.number} — ${q.name||"No name"}</strong><div class="muted">${q.documentType||"Quote"} · ${new Date(q.date).toLocaleDateString("en-GB")} · ${q.paymentStatus?`${q.paymentMethod} · ${q.paymentStatus}`:q.payment}</div><div>${money(q.quote)} · Profit ${money(q.profit)}</div><div class="record-actions"><button data-view="${i}">CUSTOMER VIEW</button><button data-cost="${i}">SHOW MY COSTS</button></div></div>`).join(""):"<p>No saved quotes yet.</p>";
   $("savedList").onclick=e=>{if(e.target.dataset.view!==undefined){const q=state[Number(e.target.dataset.view)];$("customerPriceDisplay").textContent=money(q.quote);showScreen("customerScreen")}if(e.target.dataset.cost!==undefined){const q=state[Number(e.target.dataset.cost)];showCosts(q)}};
 }
 function showCosts(q=getData()){
@@ -194,7 +219,8 @@ async function makePdfQuote(){
   const phone=$("customerPhone").value.trim();
   const address=$("customerAddress").value.trim();
   const notes=$("jobNotes").value.trim();
-  const number=$("quoteNumber").value||nextQuote();
+  const type=getDocumentType();
+  const number=$("quoteNumber").value||nextDocumentNumber(type);
   const date=new Date().toLocaleDateString("en-GB");
   const bankDetailsVisible=p.method==="Bank Transfer"||p.status==="Outstanding";
   doc.setFillColor(17,24,39);doc.rect(0,0,210,38,"F");
@@ -204,10 +230,10 @@ async function makePdfQuote(){
   doc.setFontSize(9);doc.setFont(undefined,"normal");doc.text("Professional Waste Removal & Property Clearance",44,25);
   doc.text("07954130766  •  evanspropertyclearance@gmail.com",44,31);
 
-  doc.setTextColor(17,24,39);doc.setFontSize(13);doc.setFont(undefined,"bold");doc.text("QUOTATION",16,51);
+  doc.setTextColor(17,24,39);doc.setFontSize(13);doc.setFont(undefined,"bold");doc.text(type==="Invoice"?"INVOICE":"QUOTATION",16,51);
   doc.setFontSize(10);doc.setFont(undefined,"normal");
-  doc.text(`Quote number: ${safePdfText(number)}`,16,59);
-  doc.text(`Date: ${date}`,16,65);
+  doc.text(`${type==="Invoice"?"Invoice":"Quote"} number: ${safePdfText(number)}`,16,59);
+  doc.text(`${type==="Invoice"?"Invoice date":"Date"}: ${date}`,16,65);
 
   let y=77;
   doc.setFont(undefined,"bold");doc.text("Customer details",16,y);y+=7;
@@ -216,20 +242,25 @@ async function makePdfQuote(){
   if(address){doc.text("Address:",16,y);y+=5;const lines=doc.splitTextToSize(safePdfText(address),178);doc.text(lines,16,y);y+=lines.length*5;}
 
   y+=7;doc.setDrawColor(220,220,220);doc.line(16,y,194,y);y+=10;
-  doc.setFont(undefined,"bold");doc.setFontSize(11);doc.text("Quote",16,y);doc.text("Amount",194,y,{align:"right"});y+=7;
+  doc.setFont(undefined,"bold");doc.setFontSize(11);doc.text(type==="Invoice"?"Invoice items":"Quote items",16,y);doc.text("Amount",194,y,{align:"right"});y+=7;
   doc.setFont(undefined,"normal");doc.setFontSize(10);
   doc.text("Property clearance / waste removal",16,y);doc.text(money(d.quote),194,y,{align:"right"});y+=7;
   if(d.extras && Object.keys(d.extras).length){
     Object.entries(d.extras).forEach(([label,value])=>{doc.text(safePdfText(label),16,y);doc.text(money(value),194,y,{align:"right"});y+=6;});
   }
   doc.setDrawColor(180,180,180);doc.line(120,y,194,y);y+=9;
-  doc.setFont(undefined,"bold");doc.setFontSize(16);doc.text("TOTAL",120,y);doc.text(money(d.quote),194,y,{align:"right"});y+=13;
+  doc.setFont(undefined,"bold");doc.setFontSize(16);doc.text(type==="Invoice"?"AMOUNT DUE":"TOTAL",120,y);doc.text(money(d.quote),194,y,{align:"right"});y+=13;
 
-  doc.setFontSize(11);doc.text("Payment",16,y);y+=7;
+  doc.setFontSize(11);doc.text(type==="Invoice"?"Payment details":"Payment",16,y);y+=7;
   doc.setFont(undefined,"normal");doc.setFontSize(10);
   doc.text(`Payment method: ${safePdfText(p.method)}`,16,y);y+=6;
   doc.setFont(undefined,"bold");
   doc.text(`Payment status: ${safePdfText(p.status.toUpperCase())}`,16,y);y+=8;
+  if(type==="Invoice"){
+    doc.setFont(undefined,"normal");doc.setFontSize(9);doc.setTextColor(90,90,90);
+    doc.text(p.status==="Paid"?"This invoice has been paid in full.":"Payment is outstanding. Please use the payment details below.",16,y);y+=8;
+    doc.setTextColor(17,24,39);
+  }
 
   if(bankDetailsVisible){
     doc.setFillColor(245,247,250);doc.roundedRect(16,y-2,178,31,3,3,"F");
@@ -245,7 +276,12 @@ async function makePdfQuote(){
   }
 
   doc.setFont(undefined,"normal");doc.setFontSize(9);doc.setTextColor(90,90,90);
-  const terms=[
+  const terms=type==="Invoice"?[
+    "This invoice relates to the property clearance / waste removal services described above.",
+    "Any additional work or waste not included in the agreed work may incur an additional charge.",
+    "Please retain this invoice for your records.",
+    "Payment is due as agreed with Evans Property Clearance."
+  ]:[
     "This quotation is based on the information and/or photographs provided at the time of quoting.",
     "The final price may change if the amount or type of waste differs substantially from the quotation.",
     "Additional work or waste not included in this quotation may incur an additional charge.",
@@ -258,7 +294,7 @@ async function makePdfQuote(){
   const blob=doc.output("blob");
   const file=new File([blob],`${number}.pdf`,{type:"application/pdf"});
   if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
-    try{await navigator.share({title:`Evans Property Clearance ${number}`,text:"Your waste removal quote from Evans Property Clearance.",files:[file]});toast("PDF ready to share");return}catch(e){if(e.name==="AbortError")return}
+    try{await navigator.share({title:`Evans Property Clearance ${type} ${number}`,text:`Your waste removal ${type.toLowerCase()} from Evans Property Clearance.`,files:[file]});toast("PDF ready to share");return}catch(e){if(e.name==="AbortError")return}
   }
   const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast("PDF created");
 }
