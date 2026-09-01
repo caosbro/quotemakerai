@@ -332,22 +332,26 @@ function openAiPicture(){
 function closeAiPicture(){$("aiModal").classList.add("hidden")}
 function updateAiMediaUi(){
   const count=aiMediaData.length;
-  $("aiMediaCount").textContent=count?"1 AI photo ready to analyse.":"No photo added yet.";
-  $("aiPreviews").innerHTML=count?`<img class="ai-thumb" src="${aiMediaData[0].data}" alt="AI rubbish photo">`:"";
+  $("aiMediaCount").textContent=count?`${count} photo${count===1?'':'s'} ready to analyse.`:"No photos added yet.";
+  $("aiPreviews").innerHTML=count?aiMediaData.map((m,i)=>`<div><img class="ai-thumb" src="${m.data}" alt="AI rubbish photo ${i+1}"></div>`).join(''):"";
 }
 function readFileAsDataUrl(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(new Error('Could not read the photo.'));r.readAsDataURL(file)})}
-function handleAiPhoto(e){
-  const file=e.target.files?.[0];
+async function handleAiPhoto(e){
+  const files=Array.from(e.target.files||[]);
   e.target.value='';
-  if(!file)return;
-  if(!file.type.startsWith('image/')){toast('Please choose a photo');return}
-  if(file.size>12*1024*1024){toast('Photo is too large — choose one under 12MB');return}
-  readFileAsDataUrl(file).then(compressAiImage).then(data=>{
-    aiMediaData=[{kind:'image',data}];
-    aiPhotoData=data;
+  if(!files.length)return;
+  const images=files.filter(f=>f.type.startsWith('image/'));
+  if(!images.length){toast('Please choose photos');return}
+  if(images.length>6){toast('Please choose up to 6 photos at a time');return}
+  if(images.some(f=>f.size>12*1024*1024)){toast('One of the photos is too large — choose photos under 12MB each');return}
+  try{
+    const prepared=[];
+    for(const file of images){const raw=await readFileAsDataUrl(file);prepared.push(await compressAiImage(raw));}
+    aiMediaData=prepared.map(data=>({kind:'image',data}));
+    aiPhotoData=prepared[0]||null;
     updateAiMediaUi();
     analyseAiMedia();
-  }).catch(err=>toast(err.message||'Could not prepare the photo.'));
+  }catch(err){toast(err.message||'Could not prepare the photos.')}
 }
 function normaliseAiNumber(v){const n=Number(v);return Number.isFinite(n)&&n>0?n:0}
 function getAiLearning(){try{return JSON.parse(localStorage.getItem('epc_ai_learning')||'[]')}catch{return[]}}
@@ -373,27 +377,34 @@ function renderAiResult(r){
   if(r.waste.mattresses)lines.push(`<li>Mattresses: <strong>${r.waste.mattresses}</strong></li>`);
   if(r.waste.fridges)lines.push(`<li>Fridges: <strong>${r.waste.fridges}</strong></li>`);
   const learning=r.learningAdjustment!==1?`<p class="muted">Learning adjustment: ${r.learningAdjustment.toFixed(2)}× based on your recorded disposal costs.</p>`:'';
-  $("aiResult").innerHTML=`<strong>AI assessment</strong><p>${escapeHtml(r.summary||'Rubbish identified from the supplied media.')}</p><ul>${lines.join('')||'<li>No clear waste category detected — manual quote recommended.</li>'}</ul><p>Confidence: <strong>${escapeHtml(r.confidence||'unknown')}</strong></p>${r.notes?`<p class="muted">${escapeHtml(r.notes)}</p>`:''}${learning}<div class="ai-total">Actual estimated disposal + labour cost: ${money(r.totalCost)}</div><div class="ai-total">Estimated customer price: ${money(r.quote)}</div>`;
+  $("aiResult").innerHTML=`<strong>AI assessment</strong><p>${escapeHtml(r.summary||'Rubbish identified from the supplied photos.')}</p><ul>${lines.join('')||'<li>No clear waste category detected — manual quote recommended.</li>'}</ul><p>Confidence: <strong>${escapeHtml(r.confidence||'unknown')}</strong></p>${r.notes?`<p class="muted">${escapeHtml(r.notes)}</p>`:''}${learning}<div class="ai-total">Estimated customer price: ${money(r.quote)}</div>`;
+  localStorage.setItem('epc_latest_ai_owner_cost',JSON.stringify({totalCost:r.totalCost,wasteCost:r.wasteCost,labourBase:r.labourBase,rawWasteCost:r.rawWasteCost,learningAdjustment:r.learningAdjustment,quote:r.quote,at:new Date().toISOString()}));
+  renderOwnerAiCost();
   $("aiResult").classList.remove("hidden");$("addAiQuoteBtn").classList.remove("hidden");$("saveAiLearningBtn").classList.remove("hidden");
   $("aiLearningStatus").textContent=getAiLearningStatus();
 }
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 async function compressAiImage(dataUrl){
-  return await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const max=820;const scale=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);resolve(canvas.toDataURL('image/jpeg',0.48))};img.onerror=()=>reject(new Error('The photo could not be prepared.'));img.src=dataUrl})
+  return await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const max=680;const scale=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);resolve(canvas.toDataURL('image/jpeg',0.42))};img.onerror=()=>reject(new Error('The photo could not be prepared.'));img.src=dataUrl})
 }
 async function analyseAiMedia(){
-  const image=aiMediaData[0]?.data||aiPhotoData;
-  if(!image){toast('Take or upload a photo first');return}
+  const images=aiMediaData.filter(x=>x.kind==='image').map(x=>x.data);
+  if(!images.length){toast('Take or upload at least one photo first');return}
   $("aiLoading").classList.remove("hidden");$("aiResult").classList.add("hidden");$("addAiQuoteBtn").classList.add("hidden");$("saveAiLearningBtn").classList.add("hidden");
   try{
-    const sessionKey=getGeminiKey();const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),55000);let response;
-    try{response=await fetch('/api/analyse',{cache:'no-store',method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sessionKey?{image,apiKey:sessionKey}:{image}),signal:controller.signal})}finally{clearTimeout(timer)}
+    const sessionKey=getGeminiKey();const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),70000);let response;
+    try{response=await fetch('/api/analyse',{cache:'no-store',method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sessionKey?{images,apiKey:sessionKey}:{images}),signal:controller.signal})}finally{clearTimeout(timer)}
     const text=await response.text();let parsed={};try{parsed=JSON.parse(text)}catch{}
     if(!response.ok)throw new Error(parsed.error||`AI server failed (${response.status})`);
     aiEstimate=calculateAiQuote(parsed);renderAiResult(aiEstimate);toast('AI estimate ready');
-  }catch(e){const msg=e?.name==='AbortError'?'The AI server timed out. Try the photo again.':(e?.message||'AI analysis failed.');$("aiResult").innerHTML=`<strong>AI analysis unavailable</strong><p>${escapeHtml(msg)}</p>`;$("aiResult").classList.remove("hidden")}
+  }catch(e){const msg=e?.name==='AbortError'?'The AI server timed out. Try the photos again.':(e?.message||'AI analysis failed.');$("aiResult").innerHTML=`<strong>AI analysis unavailable</strong><p>${escapeHtml(msg)}</p>`;$("aiResult").classList.remove("hidden")}
   finally{$("aiLoading").classList.add("hidden")}
 }
+function renderOwnerAiCost(){
+  const el=$("ownerAiCostInfo"); if(!el)return;
+  try{const r=JSON.parse(localStorage.getItem('epc_latest_ai_owner_cost')||'null');if(!r){el.textContent='No AI disposal-cost estimate recorded yet.';return} el.innerHTML=`Estimated disposal: <strong>${money(r.wasteCost||0)}</strong><br>Labour: <strong>${money(r.labourBase||0)}</strong><br>Total estimated cost: <strong>${money(r.totalCost||0)}</strong><br>Learning adjustment: <strong>${Number(r.learningAdjustment||1).toFixed(2)}×</strong><br><span class="muted">Updated ${new Date(r.at).toLocaleString()}</span>`}catch{el.textContent='No AI disposal-cost estimate recorded yet.'}
+}
+
 function addAiEstimateToQuote(){
   if(!aiEstimate?.waste){toast('Analyse a photo first');return}
   for(const [key,val] of Object.entries(aiEstimate.waste)){const input=$(`[data-key="${key}"] [data-qty]`);if(input)input.value=cleanNum((Number(input.value)||0)+val)}
@@ -402,3 +413,4 @@ function addAiEstimateToQuote(){
 
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 init();
+renderOwnerAiCost();
