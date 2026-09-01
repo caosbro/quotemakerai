@@ -239,7 +239,7 @@ async function makePdfQuote(){
   doc.setFont(undefined,"bold");doc.text("Customer details",16,y);y+=7;
   doc.setFont(undefined,"normal");doc.text(`Name: ${safePdfText(name)}`,16,y);y+=6;
   if(phone){doc.text(`Phone: ${safePdfText(phone)}`,16,y);y+=6;}
-  if(address){doc.text("Address:",16,y);y+=5;const lines=doc.splitTextToSize(safePdfText(address),178);doc.text(lines,16,y);y+=lines.length*5;}
+  if(address){doc.text("Address:",16,y);y+=5;const lines=doc.splitTextToSize(safePdfText(address),178).slice(0,3);doc.text(lines,16,y);y+=lines.length*4;}
 
   y+=7;doc.setDrawColor(220,220,220);doc.line(16,y,194,y);y+=10;
   doc.setFont(undefined,"bold");doc.setFontSize(11);doc.text(type==="Invoice"?"Invoice items":"Quote items",16,y);doc.text("Amount",194,y,{align:"right"});y+=7;
@@ -271,8 +271,8 @@ async function makePdfQuote(){
   }
 
   if(notes){
-    doc.setFont(undefined,"bold");doc.setFontSize(10);doc.text("Job notes",16,y);y+=6;
-    doc.setFont(undefined,"normal");const lines=doc.splitTextToSize(safePdfText(notes),178);doc.text(lines,16,y);y+=lines.length*5+7;
+    doc.setFont(undefined,"bold");doc.setFontSize(9);doc.text("Job notes",16,y);y+=5;
+    doc.setFont(undefined,"normal");const lines=doc.splitTextToSize(safePdfText(notes),178).slice(0,3);doc.text(lines,16,y);y+=lines.length*4+5;
   }
 
   doc.setFont(undefined,"normal");doc.setFontSize(9);doc.setTextColor(90,90,90);
@@ -287,10 +287,10 @@ async function makePdfQuote(){
     "Additional work or waste not included in this quotation may incur an additional charge.",
     "Payment is due as agreed with Evans Property Clearance."
   ];
-  let ty=Math.max(y+5,225);doc.setTextColor(17,24,39);doc.setFont(undefined,"bold");doc.text("Terms & conditions",16,ty);ty+=6;doc.setFont(undefined,"normal");
-  terms.forEach(t=>{const lines=doc.splitTextToSize("• "+t,178);doc.text(lines,16,ty);ty+=lines.length*4.5;});
+  let ty=Math.min(Math.max(y+4,228),252);doc.setTextColor(17,24,39);doc.setFont(undefined,"bold");doc.setFontSize(9);doc.text("Terms & conditions",16,ty);ty+=5;doc.setFont(undefined,"normal");doc.setFontSize(8);
+  terms.forEach(t=>{const lines=doc.splitTextToSize("• "+t,178).slice(0,2);doc.text(lines,16,ty);ty+=lines.length*3.6+1;});
 
-  doc.setFontSize(9);doc.setTextColor(90,90,90);doc.text("Thank you for choosing Evans Property Clearance.",16,280);
+  doc.setFontSize(8);doc.setTextColor(90,90,90);doc.text("Thank you for choosing Evans Property Clearance.",16,286);
   const blob=doc.output("blob");
   const file=new File([blob],`${number}.pdf`,{type:"application/pdf"});
   if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
