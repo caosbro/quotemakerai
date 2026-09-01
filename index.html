@@ -181,12 +181,23 @@
       <p>Take a photo or choose one from your phone. The AI will identify the visible rubbish, estimate quantities and calculate a customer price.</p>
       <div class="ai-photo-actions">
         <label class="primary ai-upload">📷 TAKE PHOTO<input id="aiCameraInput" type="file" accept="image/*" capture="environment" hidden></label>
-        <label class="ai-upload">🖼️ UPLOAD PHOTO<input id="aiFileInput" type="file" accept="image/*" hidden></label>
+        <label class="ai-upload">🖼️ ADD PHOTOS<input id="aiFileInput" type="file" accept="image/*" multiple hidden></label>
+        <label class="ai-upload">🎥 ADD VIDEO<input id="aiVideoInput" type="file" accept="video/*" capture="environment" hidden></label>
       </div>
-      <img id="aiPreview" class="ai-preview hidden" alt="Rubbish photo preview">
-      <div id="aiLoading" class="ai-loading hidden">Looking at the photo and estimating the rubbish…</div>
+      <div id="aiMediaCount" class="ai-media-count">No photos or video added yet.</div>
+      <div id="aiPreviews" class="ai-previews"></div>
+      <div id="aiLoading" class="ai-loading hidden">Looking at the photos/video frames and estimating the rubbish…</div>
       <div id="aiResult" class="ai-result hidden"></div>
-      <div class="ai-disclaimer">AI estimates are approximate. Check the result and adjust the quote before sending it to the customer.</div>
+      <div class="ai-learning card-lite">
+        <strong>Help the AI learn your real disposal costs</strong>
+        <p>After a job, enter what you actually paid to dispose of the waste. The app stores the result on this device and uses past jobs to improve future disposal-cost estimates.</p>
+        <div class="ai-learning-row">
+          <label>Actual disposal cost (£)<input id="aiActualDisposalCost" type="number" min="0" step="0.01" inputmode="decimal" placeholder="e.g. 85"></label>
+          <button id="saveAiLearningBtn" type="button" class="hidden">💾 SAVE TO AI LEARNING</button>
+        </div>
+        <div id="aiLearningStatus" class="muted"></div>
+      </div>
+      <div class="ai-disclaimer">AI estimates are approximate. Multiple photos give better coverage. Video is sampled into frames. Check the result and adjust the quote before sending it to the customer.</div>
       <button id="addAiQuoteBtn" class="primary hidden">ADD ESTIMATE TO QUOTE</button>
       <button id="closeAiBtn">CLOSE</button>
     </div>
