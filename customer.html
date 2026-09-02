@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Quote | Evans Property Clearance</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f4f5f7;color:#171717;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}.card{width:min(520px,100%);background:#fff;border-radius:22px;padding:28px 22px;box-shadow:0 10px 35px #00000012;text-align:center}.logo{max-width:180px;max-height:100px;object-fit:contain;margin-bottom:14px}h1{font-size:25px;margin:8px 0}.sub{color:#666;margin:0 0 24px}.price{font-size:42px;font-weight:800;margin:12px 0 28px}.btn{width:100%;border:0;border-radius:14px;padding:16px;margin-top:10px;font-size:16px;font-weight:700;cursor:pointer}.accept{background:#16803c;color:#fff}.question{background:#eee;color:#222}.small{font-size:13px;color:#777;margin-top:20px}.error{color:#b42318;font-weight:600}.loading{color:#666}</style>
+</head>
+<body>
+<main class="card" id="app"><div class="loading">Loading your quote…</div></main>
+<script>
+function decode(raw){try{let s=raw.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return JSON.parse(decodeURIComponent(escape(atob(s))))}catch(e){return null}}
+function money(n){return new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(Number(n)||0)}
+function wa(phone,text){let p=String(phone||'').replace(/\D/g,'');if(p.startsWith('0'))p='44'+p.slice(1);location.href='https://wa.me/'+p+'?text='+encodeURIComponent(text)}
+const raw=location.hash.startsWith('#quote=')?location.hash.slice(7):'';const q=decode(raw);const el=document.getElementById('app');
+if(!q||typeof q.quote!=='number'||!q.business){el.innerHTML='<h1>Quote unavailable</h1><p class="error">This quote link is invalid or incomplete.</p>';}else{
+const name=String(q.business.name||'Evans Property Clearance');
+el.innerHTML=`<img class="logo" src="logo.jpg" alt=""><h1>${name.replace(/[&<>"']/g,'')}</h1><p class="sub">${q.type==='Invoice'?'Invoice':'Waste Removal Quote'}</p><div class="price">${money(q.quote)}</div><button class="btn accept" id="accept">✅ ACCEPT QUOTE</button><button class="btn question" id="question">❓ ASK A QUESTION</button><button class="btn question" id="decline">❌ DECLINE QUOTE</button><p class="small">Quote ${String(q.number||'')}</p>`;
+document.getElementById('accept').onclick=()=>wa(q.business.phone,`Hi, I would like to ACCEPT quote ${q.number||''} from ${name} for ${money(q.quote)}. Please confirm the booking.`);
+document.getElementById('question').onclick=()=>wa(q.business.phone,`Hi, I have a question about quote ${q.number||''} for ${money(q.quote)}. Please contact me to discuss it.`);document.getElementById('decline').onclick=()=>wa(q.business.phone,`Hi, I would like to DECLINE quote ${q.number||''} from ${name} for ${money(q.quote)}. Please confirm.`);
+}
+</script></body></html>

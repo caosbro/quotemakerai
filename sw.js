@@ -1,5 +1,5 @@
-const CACHE="epc-quote-maker-v4";
-const ASSETS=["./","./index.html","./styles.css","./app.js?v=20260902-2","./manifest.webmanifest","./icon.jpg","./logo.jpg"];
+const CACHE="epc-quote-maker-v5";
+const ASSETS=["./","./index.html","./styles.css","./app.js?v=20260902-4","./manifest.webmanifest","./icon.jpg","./logo.jpg","./customer.html"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener("fetch",e=>{

@@ -216,12 +216,24 @@ function decodeQuoteLink(raw){try{let s=raw.replace(/-/g,'+').replace(/_/g,'/');
 function createQuoteLink(){
   recalc();
   const d=getData(),b=getBusiness(),p=getPayment();
-  const payload={v:1,name:$("customerName").value.trim(),address:$("customerAddress").value.trim(),notes:$("jobNotes").value.trim(),quote:d.quote,number:$("quoteNumber").value||nextQuote(),type:getDocumentType(),business:{name:b.name,phone:b.phone,email:b.email}};
-  const url=location.origin+location.pathname+'#quote='+encodeQuoteLink(payload);
+  const payload={v:2,name:$("customerName").value.trim(),phone:$("customerPhone").value.trim(),address:$("customerAddress").value.trim(),notes:$("jobNotes").value.trim(),quote:d.quote,number:$("quoteNumber").value||nextQuote(),type:getDocumentType(),business:{name:b.name,phone:b.phone,email:b.email}};
+  if(!payload.name&&!payload.address){toast("Add customer details first");return}
+  const url=location.origin+'/customer.html#quote='+encodeQuoteLink(payload);
+  const pendingJob=getSelectedQuote();
+  pendingJob.status='Pending Acceptance';
+  pendingJob.quoteLink=url;
+  pendingJob.quoteLinkCreatedAt=todayISO();
+  pendingJob.customerResponse='Pending';
+  const existing=state.findIndex(x=>x.number===pendingJob.number);
+  if(existing>=0)state[existing]={...state[existing],...pendingJob};else state.unshift(pendingJob);
+  saveState();
   const box=$("quoteLinkResult");
   box.classList.remove("hidden");
-  box.innerHTML=`<input id="generatedQuoteLink" readonly value="${url.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"><button type="button" id="copyQuoteLinkBtn">📋 COPY LINK</button><button type="button" id="openQuoteLinkBtn">↗️ OPEN LINK</button>`;
+  box.innerHTML=`<input id="generatedQuoteLink" readonly value="${url.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"><button type="button" id="copyQuoteLinkBtn">📋 COPY LINK</button><button type="button" id="sendQuoteLinkBtn">📲 SEND LINK BY WHATSAPP</button><button type="button" id="openQuoteLinkBtn">↗️ OPEN LINK</button>`;
   $("copyQuoteLinkBtn").onclick=async()=>{try{await navigator.clipboard.writeText(url);toast("Quote link copied ✓")}catch{$("generatedQuoteLink").select();document.execCommand("copy");toast("Quote link copied ✓")}};
+  $("sendQuoteLinkBtn").onclick=()=>{const phone=String(payload.phone||"").replace(/\D/g,"");const waPhone=phone?(phone.startsWith("0")?"44"+phone.slice(1):phone):"";const msg=`Hi ${payload.name||""}, here is your Evans Property Clearance quote. Please open the link below to review it and accept the quote:
+
+${url}`;window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`.replace("wa.me/?", "wa.me/?"),"_blank")};
   $("openQuoteLinkBtn").onclick=()=>window.open(url,"_blank");
   toast("Quote link created ✓");
 }
@@ -232,6 +244,12 @@ function loadQuoteLink(){
   const title=$("customerScreen").querySelector("h1");if(title&&payload.business?.name)title.textContent=String(payload.business.name).toUpperCase();
   const sub=$("customerScreen").querySelector("p");if(sub)sub.textContent=payload.type==="Invoice"?"Invoice":"Waste Removal Quote";
   const pdf=$("customerPdfBtn");if(pdf){pdf.style.display="none";}
+  const accept=$("acceptQuoteBtn"),decline=$("declineQuoteBtn");
+  const businessPhone=String(payload.business?.phone||"").replace(/\D/g,"");
+  const waPhone=businessPhone?(businessPhone.startsWith("0")?"44"+businessPhone.slice(1):businessPhone):"";
+  const openWhatsApp=(text)=>window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(text)}`,"_blank");
+  if(accept)accept.onclick=()=>openWhatsApp(`Hi, I would like to ACCEPT quote ${payload.number||""} from ${payload.business?.name||"Evans Property Clearance"} for ${money(payload.quote)}. Please confirm the booking.`);
+  if(decline)decline.onclick=()=>openWhatsApp(`Hi, I have a question about quote ${payload.number||""} for ${money(payload.quote)}. Please contact me to discuss it.`);
   return true;
 }
 function getData(){
@@ -563,7 +581,7 @@ function ownerTab(tab){
   if(tab==='settings'){renderDisposalCostSettings();loadBusinessSettings();renderDisposalHistory();renderLearningRecords();}
 }
 function jobStatus(q){return q.status||'Quoted'}
-function statusLabel(s){return {Quoted:'📝 Quoted',Booked:'📅 Booked',Completed:'✅ Completed',Cancelled:'❌ Cancelled',Archived:'📦 Archived'}[s]||s}
+function statusLabel(s){return {'Pending Acceptance':'⏳ Pending Acceptance',Accepted:'✅ Accepted',Denied:'❌ Denied',Quoted:'📝 Quoted',Booked:'📅 Booked',Completed:'✅ Completed',Cancelled:'❌ Cancelled',Archived:'📦 Archived'}[s]||s}
 function formatJobDate(q){if(!q.jobDate)return 'No date booked';const d=new Date(q.jobDate+'T00:00:00');return d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})+(q.jobTime?` · ${q.jobTime}`:'')}
 function getSelectedQuote(){
   const d=getData(),p=getPayment(),type=getDocumentType();
@@ -581,15 +599,18 @@ function saveQuote(){
   return q;
 }
 function updateSavedQuoteFromForm(){const q=getSelectedQuote(),idx=state.findIndex(x=>x.number===q.number);if(idx<0)return saveQuote();state[idx]={...state[idx],...q};saveState();return state[idx]}
+function markAccepted(i){const q=state[i];if(!q)return;q.status='Accepted';q.customerResponse='Accepted';q.acceptedAt=todayISO();saveState();renderDashboard();toast('Quote accepted ✓')}
+function markDenied(i){const q=state[i];if(!q)return;if(!confirm('Mark this quote as denied?'))return;q.status='Denied';q.customerResponse='Denied';q.deniedAt=todayISO();saveState();renderDashboard();toast('Quote marked denied')}
 function bookJob(i){
   const q=state[i];if(!q)return;
+  if(q.status!=='Accepted'){toast('Customer must accept the quote first');return}
   if(!q.jobDate){toast('Set a job date on the quote first');return}
   q.status='Booked';q.bookedAt=todayISO();saveState();renderDashboard();toast('Job booked ✓');
 }
 function completeJob(i){const q=state[i];if(!q)return;q.status='Completed';q.completedAt=todayISO();saveState();renderDashboard();toast('Job marked completed ✓')}
 function cancelJob(i){const q=state[i];if(!q)return;if(!confirm('Cancel this job?'))return;q.status='Cancelled';q.cancelledAt=todayISO();saveState();renderDashboard();toast('Job cancelled')}
 function archiveJob(i){const q=state[i];if(!q)return;q.status='Archived';saveState();renderDashboard();toast('Job archived')}
-function restoreJob(i){const q=state[i];if(!q)return;q.status='Quoted';saveState();renderDashboard();toast('Job restored')}
+function restoreJob(i){const q=state[i];if(!q)return;q.status='Quoted';q.customerResponse=undefined;saveState();renderDashboard();toast('Job restored')}
 function markPaid(i){const q=state[i];if(!q)return;q.paymentStatus='Paid';q.payment=q.paymentMethod+' · Paid';q.paidAt=todayISO();saveState();renderDashboard();toast('Payment marked paid ✓')}
 function markOutstanding(i){const q=state[i];if(!q)return;q.paymentStatus='Outstanding';q.payment=q.paymentMethod+' · Outstanding';saveState();renderDashboard();toast('Payment marked outstanding')}
 function customerMessage(q,type='quote'){
@@ -641,13 +662,14 @@ function addLoad(){
 function removeLoad(n){const i=window.currentLoadJobIndex;if(!Number.isInteger(i)||!state[i])return;const q=state[i];if(!Array.isArray(q.loads))return;q.loads.splice(n,1);saveState();renderLoadTracking(q);renderDashboard();toast('Load removed')}
 function renderJobCard(q,i,mode='jobs'){
   const status=jobStatus(q), actions=[];
-  if(status==='Quoted')actions.push(`<button data-job-action="book" data-index="${i}">📅 BOOK JOB</button>`);
+  if(status==='Pending Acceptance'){actions.push(`<button class="primary" data-job-action="accept" data-index="${i}">✅ MARK ACCEPTED</button>`);actions.push(`<button data-job-action="deny" data-index="${i}">❌ MARK DENIED</button>`)}
+  if(status==='Accepted')actions.push(`<button data-job-action="book" data-index="${i}">📅 BOOK JOB</button>`);
   if(status==='Booked')actions.push(`<button data-job-action="complete" data-index="${i}">✅ COMPLETE</button>`);
   if(status!=='Cancelled'&&status!=='Archived')actions.push(`<button data-job-action="sendbooking" data-index="${i}">💬 SEND MESSAGE</button>`);
   if(q.address)actions.push(`<button data-job-action="navigate" data-index="${i}">📍 NAVIGATE</button>`);
   if(status==='Booked'||status==='Completed')actions.push(`<button data-job-action="loads" data-index="${i}">🚛 LOAD TRACKING</button>`);
   if(status==='Completed')actions.push(`<button data-job-action="feedback" data-index="${i}">⭐ REVIEW REQUEST</button>`);
-  if(status==='Quoted'||status==='Booked')actions.push(`<button data-job-action="cancel" data-index="${i}">❌ CANCEL</button>`);
+  if(status==='Quoted'||status==='Pending Acceptance'||status==='Accepted'||status==='Booked')actions.push(`<button data-job-action="cancel" data-index="${i}">❌ CANCEL</button>`);
   actions.push(`<button data-job-action="load" data-index="${i}">✏️ LOAD QUOTE</button>`);
   if(q.paymentStatus==='Outstanding'||!q.paymentStatus)actions.push(`<button data-job-action="paid" data-index="${i}">💷 MARK PAID</button>`);else actions.push(`<button data-job-action="outstanding" data-index="${i}">⏳ UNPAID</button>`);
   if(q.paymentStatus==='Outstanding'||!q.paymentStatus)actions.push(`<button data-job-action="reminder" data-index="${i}">📲 PAYMENT REMINDER</button>`);
@@ -695,7 +717,7 @@ function loadQuoteIntoForm(q){
   document.querySelectorAll('[data-payment-method]').forEach(b=>b.classList.toggle('selected',b.dataset.paymentMethod===(q.paymentMethod||'Cash')));document.querySelectorAll('[data-payment-status]').forEach(b=>b.classList.toggle('selected',b.dataset.paymentStatus===(q.paymentStatus||'Outstanding')));
   document.querySelectorAll('[data-document-type]').forEach(b=>b.classList.toggle('selected',b.dataset.documentType===(q.documentType||'Quote')));updateDocumentType();recalc();toast('Quote loaded ✓');
 }
-function handleJobAction(e){const b=e.target.closest('[data-job-action]');if(!b)return;const i=Number(b.dataset.index),a=b.dataset.jobAction,q=state[i];if(!q)return;if(a==='book')bookJob(i);if(a==='complete')completeJob(i);if(a==='paid')markPaid(i);if(a==='outstanding')markOutstanding(i);if(a==='cancel')cancelJob(i);if(a==='archive')archiveJob(i);if(a==='restore')restoreJob(i);if(a==='cost')showCosts(q);if(a==='load')loadQuoteIntoForm(q);if(a==='sendbooking')sendBookingWhatsApp(q);if(a==='reminder')sendReminderWhatsApp(q);if(a==='navigate')openNavigation(q);if(a==='loads')openLoadTracking(i);if(a==='feedback')sendFeedbackWhatsApp(q)}
+function handleJobAction(e){const b=e.target.closest('[data-job-action]');if(!b)return;const i=Number(b.dataset.index),a=b.dataset.jobAction,q=state[i];if(!q)return;if(a==='accept')markAccepted(i);if(a==='deny')markDenied(i);if(a==='book')bookJob(i);if(a==='complete')completeJob(i);if(a==='paid')markPaid(i);if(a==='outstanding')markOutstanding(i);if(a==='cancel')cancelJob(i);if(a==='archive')archiveJob(i);if(a==='restore')restoreJob(i);if(a==='cost')showCosts(q);if(a==='load')loadQuoteIntoForm(q);if(a==='sendbooking')sendBookingWhatsApp(q);if(a==='reminder')sendReminderWhatsApp(q);if(a==='navigate')openNavigation(q);if(a==='loads')openLoadTracking(i);if(a==='feedback')sendFeedbackWhatsApp(q)}
 function renderDashboard(){
   const now=new Date(),day=now.toISOString().slice(0,10),weekStart=new Date(now);weekStart.setDate(now.getDate()-((now.getDay()+6)%7));weekStart.setHours(0,0,0,0),month=now.getMonth();
   const paid=q=>q.paymentStatus==='Paid';
