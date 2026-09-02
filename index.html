@@ -51,7 +51,7 @@
 
       <section class="card full-house-card">
         <h2>🏠 Full House Clearance</h2>
-        <p class="muted">Quick pricing for complete house clearances. A standard 3-bedroom, 2-reception-room house is designed to land around £2,000–£2,300 depending on gardens and extras.</p>
+        <p class="muted">Pricing for a complete property clearance — from a full house through to an empty, market-ready property, including gardens, garage, shed and loft where required.</p>
         <label class="toggle-row"><input id="fullHouseToggle" type="checkbox"> <span>Use Full House Clearance pricing</span></label>
         <div id="fullHouseFields" class="hidden">
           <div class="house-grid">
@@ -63,10 +63,11 @@
             <label>Additional loads<select id="houseLoads"><option value="1" selected>1 load</option><option value="2">2 loads</option><option value="3">3 loads</option><option value="4">4 loads</option><option value="5">5 loads</option><option value="6">6 loads</option></select></label>
           </div>
           <div class="check-grid">
-            <label><input id="houseFrontGarden" type="checkbox"> Front garden</label>
-            <label><input id="houseBackGarden" type="checkbox"> Back garden</label>
+            <label>Front garden<select id="houseFrontGarden"><option value="0" selected>None</option><option value="150">Small / tidy</option><option value="200">Standard</option><option value="300">Large / overgrown</option></select></label>
+            <label>Rear garden<select id="houseBackGarden"><option value="0" selected>None</option><option value="250">Small / tidy</option><option value="350">Standard</option><option value="500">Large / overgrown</option><option value="800">Very large / heavy clearance</option></select></label>
             <label><input id="houseGarage" type="checkbox"> Garage</label>
             <label><input id="houseShed" type="checkbox"> Shed / outbuilding</label>
+            <label><input id="houseLoft" type="checkbox"> Loft clearance</label>
             <label><input id="houseHeavy" type="checkbox"> Heavy / difficult clearance</label>
             <label><input id="houseExtraWaste" type="checkbox"> Significant extra waste</label>
           </div>

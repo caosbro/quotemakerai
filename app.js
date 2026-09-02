@@ -177,7 +177,7 @@ function bindCore(){
   document.querySelectorAll("[data-payment-method]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-payment-method]").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");updatePaymentSummary()});
   document.querySelectorAll("[data-payment-status]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-payment-status]").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");updatePaymentSummary()});
   ["customerName","customerPhone","customerAddress","jobNotes","customLabour","customPrice"].forEach(id=>$(id).addEventListener("input",recalc));
-  ["fullHouseToggle","houseBedrooms","houseReception","houseBathrooms","houseKitchen","houseHallways","houseLoads","houseFrontGarden","houseBackGarden","houseGarage","houseShed","houseHeavy","houseExtraWaste"].forEach(id=>{const e=$(id);if(e){e.addEventListener("input",updateFullHouse);e.addEventListener("change",updateFullHouse)}});
+  ["fullHouseToggle","houseBedrooms","houseReception","houseBathrooms","houseKitchen","houseHallways","houseLoads","houseFrontGarden","houseBackGarden","houseGarage","houseShed","houseLoft","houseHeavy","houseExtraWaste"].forEach(id=>{const e=$(id);if(e){e.addEventListener("input",updateFullHouse);e.addEventListener("change",updateFullHouse)}});
   $("calculateBtn").onclick=()=>{recalc();toast("Quote calculated")};
   $("clearBtn").onclick=clearQuote;
   $("saveBtn").onclick=saveQuote;
@@ -260,25 +260,36 @@ function fullHousePrice(){
   const kitchen=Number($('houseKitchen')?.value)||0;
   const hallways=Number($('houseHallways')?.value)||0;
   const loads=Math.max(1,Number($('houseLoads')?.value)||1);
-  const front=$('houseFrontGarden')?.checked;
-  const back=$('houseBackGarden')?.checked;
+  const front=Number($('houseFrontGarden')?.value)||0;
+  const back=Number($('houseBackGarden')?.value)||0;
   const garage=$('houseGarage')?.checked;
   const shed=$('houseShed')?.checked;
+  const loft=$('houseLoft')?.checked;
   const heavy=$('houseHeavy')?.checked;
   const extraWaste=$('houseExtraWaste')?.checked;
 
-  // Customer-facing full-house pricing. The standard 3-bed / 2-reception
-  // house is intentionally positioned around £2,000 before optional extras.
-  let total=800 + bedrooms*250 + reception*200 + bathrooms*100 + kitchen*150 + Math.max(0,hallways-1)*75;
-  if(front) total+=100;
-  if(back) total+=100;
-  if(garage) total+=150;
-  if(shed) total+=100;
-  if(heavy) total+=150;
-  if(extraWaste) total+=150;
-  if(loads>1) total+=(loads-1)*200;
-  total=Math.round(total/50)*50;
-  return {total,bedrooms,reception,bathrooms,kitchen,hallways,loads,front,back,garage,shed,heavy,extraWaste};
+  // Complete property clearance pricing: the aim is to empty the property
+  // and leave it ready to market, rather than pricing it as a simple waste job.
+  // Base prices: 1-bed £700, 2-bed £1,000, 3-bed £1,400, 4-bed £1,750,
+  // 5-bed £2,100, 6+ bed £2,500+.
+  const bedroomBase={0:0,1:700,2:1000,3:1400,4:1750,5:2100,6:2500};
+  let total=bedroomBase[Math.min(bedrooms,6)]||2500+(bedrooms-6)*250;
+  if(bedrooms===0) total=500;
+  if(reception>2) total+=(reception-2)*100;
+  if(reception<2) total-=Math.max(0,2-reception)*75;
+  if(bathrooms>1) total+=(bathrooms-1)*75;
+  if(bathrooms===0) total-=75;
+  if(!kitchen) total-=100;
+  if(hallways>1) total+=(hallways-1)*50;
+  total+=front+back;
+  if(garage) total+=200;
+  if(shed) total+=150;
+  if(loft) total+=150;
+  if(heavy) total+=300;
+  if(extraWaste) total+=250;
+  if(loads>1) total+=(loads-1)*250;
+  total=Math.max(0,Math.round(total/50)*50);
+  return {total,bedrooms,reception,bathrooms,kitchen,hallways,loads,front,back,garage,shed,loft,heavy,extraWaste};
 }
 function updateFullHouse(){
   const enabled=$('fullHouseToggle')?.checked;
@@ -287,7 +298,7 @@ function updateFullHouse(){
   const h=fullHousePrice();
   if($('fullHouseTotal'))$('fullHouseTotal').textContent=money(h.total);
   const extras=[];
-  if(h.front)extras.push('front garden'); if(h.back)extras.push('back garden'); if(h.garage)extras.push('garage'); if(h.shed)extras.push('shed');
+  if(h.front)extras.push(`front garden +£${h.front}`); if(h.back)extras.push(`rear garden +£${h.back}`); if(h.garage)extras.push('garage'); if(h.shed)extras.push('shed'); if(h.loft)extras.push('loft');
   if(h.heavy)extras.push('heavy clearance'); if(h.extraWaste)extras.push('extra waste'); if(h.loads>1)extras.push(`${h.loads} loads`);
   if($('fullHouseBreakdown'))$('fullHouseBreakdown').textContent=`${h.bedrooms} bedroom${h.bedrooms===1?'':'s'}, ${h.reception} reception room${h.reception===1?'':'s'}, ${h.bathrooms} bathroom${h.bathrooms===1?'':'s'}${extras.length?` · Extras: ${extras.join(', ')}`:''}`;
   recalc();
