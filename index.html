@@ -71,15 +71,23 @@
           <button class="selected" data-price="standard">STANDARD ×1.5</button>
           <button data-price="plus10">+10%</button>
           <button data-price="plus20">+20%</button>
-          <button data-price="custom">CUSTOM</button>
+          <button data-price="custom">PRICE OVERRIDE</button>
         </div>
-        <label id="customPriceWrap" class="hidden">Custom customer price (£)
-          <input id="customPrice" type="number" min="0" step="1" inputmode="decimal" placeholder="0">
+        <label id="customPriceWrap" class="hidden">Override customer price (£)
+          <input id="customPrice" type="number" min="0" step="1" inputmode="decimal" placeholder="Enter final price">
         </label>
+        <p id="priceOverrideStatus" class="muted hidden">Price override is active. This replaces the calculated customer price.</p>
         <div class="quote-preview">
           <span>Customer quote</span>
           <strong id="quoteTotal">£0.00</strong>
         </div>
+      </section>
+
+      <section class="card">
+        <h2>🔗 Customer quote link</h2>
+        <p class="muted">Create a shareable link showing the customer price only. Your costs and profit stay hidden.</p>
+        <button class="primary" id="createLinkBtn" type="button">🔗 CREATE QUOTE LINK</button>
+        <div id="quoteLinkResult" class="hidden link-result"></div>
       </section>
 
       <section class="card">
@@ -172,7 +180,7 @@
       <h2>🚛 Load tracking</h2>
       <p id="loadJobTitle" class="muted"></p>
       <div id="loadList"></div>
-      <div class="settings-section"><h3>Add a load</h3><label>Load weight (tonnes)<input id="loadWeight" type="number" min="0" step="0.01" inputmode="decimal" placeholder="e.g. 0.80"></label><label>Actual disposal cost (£)<input id="loadDisposalCost" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Optional"></label><p class="muted">Load labour is added automatically from Owner Settings.</p><button class="primary" id="addLoadBtn" type="button">➕ ADD LOAD</button></div>
+      <div class="settings-section"><h3 id="loadFormHeading">Add a load</h3><label>Load weight (tonnes)<input id="loadWeight" type="number" min="0" step="0.01" inputmode="decimal" placeholder="e.g. 0.80"></label><label>Actual disposal cost (£)<input id="loadDisposalCost" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Optional"></label><p class="muted">Load labour is added automatically from Owner Settings.</p><button class="primary" id="addLoadBtn" type="button">➕ ADD LOAD</button></div>
       <p id="loadTotals" class="muted"></p>
     </div>
   </div>
@@ -248,6 +256,6 @@
   <div id="toast" class="toast"></div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="app.js?v=20260902-2"></script>
+<script src="app.js?v=20260902-3"></script>
 </body>
 </html>

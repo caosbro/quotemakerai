@@ -172,7 +172,7 @@ function bindCore(){
   $("wasteRows").oninput=()=>recalc();
   $("commonItems").onclick=e=>{const b=e.target.closest("[data-common]");if(!b)return;const name=b.dataset.common;const kg=CONFIG.common[name];let target="mixed";if(name.includes("Mattress"))target="mattresses";if(name==="Fridge Freezer")target="fridges";if(target==="mixed"){$(`[data-key="${target}"] [data-qty]`).value=cleanNum((Number($(`[data-key="${target}"] [data-qty]`).value)||0)+kg)}else{$(`[data-key="${target}"] [data-qty]`).value=cleanNum((Number($(`[data-key="${target}"] [data-qty]`).value)||0)+1)}recalc();toast(`${name} added`)};
   $("extras").onclick=e=>{const b=e.target.closest("[data-extra]");if(!b)return;b.classList.toggle("active");recalc()};
-  document.querySelectorAll(".price-options button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".price-options button").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");$("customPriceWrap").classList.toggle("hidden",b.dataset.price!=="custom");recalc()});
+  document.querySelectorAll(".price-options button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".price-options button").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");const active=b.dataset.price==="custom";$("customPriceWrap").classList.toggle("hidden",!active);$("priceOverrideStatus")?.classList.toggle("hidden",!active);recalc()});
   document.querySelectorAll("[data-document-type]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-document-type]").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");updateDocumentType();recalc()});
   document.querySelectorAll("[data-payment-method]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-payment-method]").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");updatePaymentSummary()});
   document.querySelectorAll("[data-payment-status]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-payment-status]").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");updatePaymentSummary()});
@@ -185,6 +185,7 @@ function bindCore(){
   $("whatsappBtn").onclick=sendWhatsApp;
   $("pdfBtn").onclick=makePdfQuote;
   $("customerPdfBtn").onclick=makePdfQuote;
+  $("createLinkBtn")?.addEventListener("click",createQuoteLink);
   $("aiPictureBtn").onclick=openAiPicture;
   $("closeKey").onclick=closeGeminiKeySetup;
   $("saveKeyBtn").onclick=saveGeminiKey;
@@ -210,6 +211,29 @@ function bindCore(){
   updateDocumentType();
 }
 function cleanNum(n){return Math.round(n*1000)/1000}
+function encodeQuoteLink(payload){return btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function decodeQuoteLink(raw){try{let s=raw.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return JSON.parse(decodeURIComponent(escape(atob(s))))}catch{return null}}
+function createQuoteLink(){
+  recalc();
+  const d=getData(),b=getBusiness(),p=getPayment();
+  const payload={v:1,name:$("customerName").value.trim(),address:$("customerAddress").value.trim(),notes:$("jobNotes").value.trim(),quote:d.quote,number:$("quoteNumber").value||nextQuote(),type:getDocumentType(),business:{name:b.name,phone:b.phone,email:b.email}};
+  const url=location.origin+location.pathname+'#quote='+encodeQuoteLink(payload);
+  const box=$("quoteLinkResult");
+  box.classList.remove("hidden");
+  box.innerHTML=`<input id="generatedQuoteLink" readonly value="${url.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"><button type="button" id="copyQuoteLinkBtn">📋 COPY LINK</button><button type="button" id="openQuoteLinkBtn">↗️ OPEN LINK</button>`;
+  $("copyQuoteLinkBtn").onclick=async()=>{try{await navigator.clipboard.writeText(url);toast("Quote link copied ✓")}catch{$("generatedQuoteLink").select();document.execCommand("copy");toast("Quote link copied ✓")}};
+  $("openQuoteLinkBtn").onclick=()=>window.open(url,"_blank");
+  toast("Quote link created ✓");
+}
+function loadQuoteLink(){
+  const hash=location.hash||"";if(!hash.startsWith("#quote="))return false;
+  const payload=decodeQuoteLink(hash.slice(7));if(!payload||typeof payload.quote!=="number")return false;
+  showScreen("customerScreen");$("customerPriceDisplay").textContent=money(payload.quote);
+  const title=$("customerScreen").querySelector("h1");if(title&&payload.business?.name)title.textContent=String(payload.business.name).toUpperCase();
+  const sub=$("customerScreen").querySelector("p");if(sub)sub.textContent=payload.type==="Invoice"?"Invoice":"Waste Removal Quote";
+  const pdf=$("customerPdfBtn");if(pdf){pdf.style.display="none";}
+  return true;
+}
 function getData(){
   const waste={};document.querySelectorAll(".waste-row").forEach(r=>waste[r.dataset.key]=Number(r.querySelector("[data-qty]").value)||0);
   const extras={};document.querySelectorAll("[data-extra].active").forEach(b=>extras[b.dataset.extra]=Number(b.dataset.value));
@@ -224,7 +248,7 @@ function getData(){
     quote=raw==="" ? 0 : Math.max(0, Number(raw)||0);
   }
   quote=Math.max(0,quote);
-  return {waste,extras,extraTotal,wasteCost,labourBase,labour,totalCost,quote,mode};
+  return {waste,extras,extraTotal,wasteCost,labourBase,labour,totalCost,quote,mode,priceOverride:mode==="custom"};
 }
 function jobType(w){
   const soil=w.soil>0,rubble=w.rubble>0,other=Object.entries(w).some(([k,v])=>v>0&&!["soil","rubble"].includes(k));
@@ -257,7 +281,7 @@ function updatePaymentSummary(){
   $("paymentStatus").textContent=`${p.method} · ${p.status}`;
 }
 function recalc(){
-  const d=getData();$("quoteTotal").textContent=money(d.quote);$("customerPriceDisplay").textContent=money(d.quote);
+  const d=getData();$("quoteTotal").textContent=money(d.quote);$("customerPriceDisplay").textContent=money(d.quote);if($("priceOverrideStatus"))$("priceOverrideStatus").classList.toggle("hidden",!d.priceOverride);
   updatePaymentSummary();
 }
 function showScreen(id){["ownerScreen","customerScreen","dashboardScreen"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
@@ -267,7 +291,7 @@ function checkPin(){if($("pinInput").value===CONFIG.pin){$("pinModal").classList
 function saveQuote(){
   const d=getData();const p=getPayment();
   const documentType=getDocumentType();
-  const q={number:$("quoteNumber").value||nextDocumentNumber(documentType),documentType,date:todayISO(),name:$("customerName").value.trim(),phone:$("customerPhone").value.trim(),address:$("customerAddress").value.trim(),notes:$("jobNotes").value.trim(),paymentMethod:p.method,paymentStatus:p.status,payment:`${p.method} · ${p.status}`,quote:d.quote,cost:d.totalCost,profit:d.quote-d.totalCost,waste:d.waste,labour:d.labour,labourBase:d.labourBase,extraLabour:d.extraTotal};
+  const q={number:$("quoteNumber").value||nextDocumentNumber(documentType),documentType,date:todayISO(),name:$("customerName").value.trim(),phone:$("customerPhone").value.trim(),address:$("customerAddress").value.trim(),notes:$("jobNotes").value.trim(),paymentMethod:p.method,paymentStatus:p.status,payment:`${p.method} · ${p.status}`,quote:d.quote,cost:d.totalCost,profit:d.quote-d.totalCost,waste:d.waste,labour:d.labour,labourBase:d.labourBase,extraLabour:d.extraTotal,priceOverride:d.priceOverride};
   if(!q.name&&!q.address)toast("Add customer details first");
   state.unshift(q);saveState();$("quoteNumber").value=nextQuote();toast("Quote saved");return q;
 }
@@ -601,6 +625,8 @@ function openLoadTracking(i){
 }
 function renderLoadTracking(q){
   const loads=Array.isArray(q.loads)?q.loads:[];
+  if($('loadFormHeading'))$('loadFormHeading').textContent=loads.length?`Add another load (Load ${loads.length+1})`:'Add a load';
+  if($('addLoadBtn'))$('addLoadBtn').textContent=loads.length?`➕ ADD ANOTHER LOAD (LOAD ${loads.length+1})`:'➕ ADD LOAD';
   if($("loadList"))$("loadList").innerHTML=loads.length?loads.map((l,n)=>`<div class="quote-record"><strong>Load ${n+1}</strong><div class="muted">${Number(l.tonnes||0).toFixed(2)} tonnes${l.actualDisposalCost!=null?' · Actual disposal '+money(l.actualDisposalCost):''}</div><button data-remove-load="${n}" type="button">REMOVE</button></div>`).join(''):'<p class="muted">No loads recorded yet.</p>';
   const total=loads.reduce((a,l)=>a+Number(l.tonnes||0),0),actual=loads.reduce((a,l)=>a+(Number(l.actualDisposalCost)||0),0),labour=loads.filter(l=>l.actualDisposalCost!=null).length*getLoadLabour(),combined=actual+labour;
   if($("loadTotals"))$("loadTotals").textContent=`Total tracked weight: ${total.toFixed(2)} tonnes · Disposal: ${money(actual)} · Load labour: ${money(labour)} · Total actual load cost: ${money(combined)}`;
@@ -708,6 +734,7 @@ async function init(){
   $('quoteNumber').value=nextQuote();
   const d=new Date();const iso=d.toISOString().slice(0,10);if($('jobDate'))$('jobDate').value=iso;if($('jobTime'))$('jobTime').value='';
   bind();recalc();
+  if(loadQuoteLink())return;
 }
 function customerQuoteText(){const d=getData(),name=$('customerName').value.trim()||'Customer',address=$('customerAddress').value.trim(),notes=$('jobNotes').value.trim(),b=getBusiness();return `${b.name}\n\nWaste Removal Quote\n\nCustomer: ${name}${address?`\nAddress: ${address}`:''}${$('jobDate').value?`\nJob date: ${formatJobDate({jobDate:$('jobDate').value,jobTime:$('jobTime').value})}`:''}\n\nQuote total: ${money(d.quote)}${notes?`\n\nJob notes: ${notes}`:''}\n\nThank you for choosing ${b.name}.\n${b.phone}`}
 function sendWhatsApp(){sendQuoteWhatsApp(getSelectedQuote())}
