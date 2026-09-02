@@ -231,11 +231,9 @@ function createQuoteLink(){
   saveState();
   const box=$("quoteLinkResult");
   box.classList.remove("hidden");
-  box.innerHTML=`<input id="generatedQuoteLink" readonly value="${url.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"><button type="button" id="copyQuoteLinkBtn">📋 COPY LINK</button><button type="button" id="sendQuoteLinkBtn">📲 SEND LINK BY WHATSAPP</button><button type="button" id="openQuoteLinkBtn">↗️ OPEN LINK</button>`;
+  box.innerHTML=`<input id="generatedQuoteLink" readonly value="${url.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"><button type="button" id="copyQuoteLinkBtn">📋 COPY LINK</button><button type="button" id="sendQuoteLinkBtn">📲 SEND ${payload.type==='Invoice'?'INVOICE':'QUOTE'} LINK BY WHATSAPP</button><button type="button" id="openQuoteLinkBtn">↗️ OPEN LINK</button>`;
   $("copyQuoteLinkBtn").onclick=async()=>{try{await navigator.clipboard.writeText(url);toast("Quote link copied ✓")}catch{$("generatedQuoteLink").select();document.execCommand("copy");toast("Quote link copied ✓")}};
-  $("sendQuoteLinkBtn").onclick=()=>{const phone=String(payload.phone||"").replace(/\D/g,"");const waPhone=phone?(phone.startsWith("0")?"44"+phone.slice(1):phone):"";const msg=`Hi ${payload.name||""}, here is your Evans Property Clearance quote. Please open the link below to review it and accept the quote:
-
-${url}`;window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`.replace("wa.me/?", "wa.me/?"),"_blank")};
+  $("sendQuoteLinkBtn").onclick=()=>{const phone=String(payload.phone||"").replace(/\D/g,"");const waPhone=phone?(phone.startsWith("0")?"44"+phone.slice(1):phone):"";const review=payload.type==='Invoice'?`\n\n⭐ Happy with our service? We'd really appreciate a review.\n\n⭐ Facebook\n${payload.business.facebook||""}\n⭐ Google\n${payload.business.googleReview||DEFAULT_BUSINESS.googleReview}`:"";const msg=`Hi ${payload.name||""}, here is your Evans Property Clearance ${payload.type==='Invoice'?'invoice':'quote'}. Please open the link below to view it.\n\n${url}${review}`;window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`,"_blank")};
   $("openQuoteLinkBtn").onclick=()=>window.open(url,"_blank");
   toast("Quote link created ✓");
 }
@@ -691,7 +689,9 @@ function customerMessage(q,type='quote'){
   const b=getBusiness();const name=q.name||'Customer';
   if(type==='reminder')return `${b.name}\n\nHi ${name}, just a quick reminder that ${money(q.quote)} is still outstanding for your property clearance. Please contact us if you have any questions.\n\n${b.phone}`;
   if(type==='booking')return `${b.name}\n\nHi ${name}, your property clearance is booked for ${formatJobDate(q)}.\n\nAddress: ${q.address||'As agreed'}\nQuote: ${money(q.quote)}\n\nIf anything changes, please contact us on ${b.phone}.`;
-  return `${b.name}\n\nWaste Removal Quote\n\nCustomer: ${name}${q.address?`\nAddress: ${q.address}`:''}${q.jobDate?`\nJob date: ${formatJobDate(q)}`:''}\n\nQuote total: ${money(q.quote)}\n\nThank you for choosing ${b.name}.\n${b.phone}`;
+  const invoice=q.documentType==='Invoice';
+  const review=invoice?`\n\n⭐ Happy with our service? We'd really appreciate a review.\n\n⭐ Facebook\n${b.facebook||""}\n⭐ Google\n${b.googleReview||DEFAULT_BUSINESS.googleReview}`:"";
+  return `${b.name}\n\n${invoice?'Invoice':'Waste Removal Quote'}\n\nCustomer: ${name}${q.address?`\nAddress: ${q.address}`:''}${q.jobDate?`\nJob date: ${formatJobDate(q)}`:''}\n\n${invoice?'Amount due':'Quote total'}: ${money(q.quote)}\n\nThank you for choosing ${b.name}.\n${b.phone}${review}`;
 }
 function sendQuoteWhatsApp(q=getSelectedQuote()){window.open('https://wa.me/?text='+encodeURIComponent(customerMessage(q,'quote')),'_blank')}
 function sendBookingWhatsApp(q){window.open('https://wa.me/?text='+encodeURIComponent(customerMessage(q,'booking')),'_blank')}
