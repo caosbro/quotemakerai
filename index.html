@@ -50,9 +50,9 @@
       </section>
 
       <section class="card full-house-card">
-        <h2>🏠 Full House Clearance</h2>
-        <p class="muted">Pricing for a complete property clearance — from a full house through to an empty, market-ready property, including gardens, garage, shed and loft where required.</p>
-        <label class="toggle-row"><input id="fullHouseToggle" type="checkbox"> <span>Use Full House Clearance pricing</span></label>
+        <h2>🏠 Complete Property Clearance</h2>
+        <p class="muted">For a property that needs completely emptying and left ready to put on the market. Pricing covers the house contents, with gardens, garage, loft and other work added only when required.</p>
+        <label class="toggle-row"><input id="fullHouseToggle" type="checkbox"> <span>Use Complete Property Clearance pricing</span></label>
         <div id="fullHouseFields" class="hidden">
           <div class="house-grid">
             <label>Bedrooms<select id="houseBedrooms"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select></label>
@@ -60,18 +60,18 @@
             <label>Bathrooms<select id="houseBathrooms"><option value="0">0</option><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
             <label>Kitchen<select id="houseKitchen"><option value="0">No</option><option value="1" selected>Yes</option></select></label>
             <label>Hallways / landings<select id="houseHallways"><option value="0">None</option><option value="1" selected>1</option><option value="2">2</option><option value="3">3+</option></select></label>
+            <label>Front garden<select id="houseFrontGarden"><option value="0" selected>Not required</option><option value="150">Small / tidy</option><option value="200">Medium</option><option value="300">Large</option></select></label>
+            <label>Rear garden<select id="houseBackGarden"><option value="0" selected>Not required</option><option value="250">Small / tidy</option><option value="350">Medium</option><option value="500">Large</option><option value="650">Large / overgrown</option></select></label>
             <label>Additional loads<select id="houseLoads"><option value="1" selected>1 load</option><option value="2">2 loads</option><option value="3">3 loads</option><option value="4">4 loads</option><option value="5">5 loads</option><option value="6">6 loads</option></select></label>
           </div>
           <div class="check-grid">
-            <label>Front garden<select id="houseFrontGarden"><option value="0" selected>None</option><option value="150">Small / tidy</option><option value="200">Standard</option><option value="300">Large / overgrown</option></select></label>
-            <label>Rear garden<select id="houseBackGarden"><option value="0" selected>None</option><option value="250">Small / tidy</option><option value="350">Standard</option><option value="500">Large / overgrown</option><option value="800">Very large / heavy clearance</option></select></label>
-            <label><input id="houseGarage" type="checkbox"> Garage</label>
-            <label><input id="houseShed" type="checkbox"> Shed / outbuilding</label>
-            <label><input id="houseLoft" type="checkbox"> Loft clearance</label>
-            <label><input id="houseHeavy" type="checkbox"> Heavy / difficult clearance</label>
-            <label><input id="houseExtraWaste" type="checkbox"> Significant extra waste</label>
+            <label><input id="houseGarage" type="checkbox"> Garage (+£200)</label>
+            <label><input id="houseShed" type="checkbox"> Shed / outbuilding (+£150)</label>
+            <label><input id="houseLoft" type="checkbox"> Loft clearance (+£150)</label>
+            <label><input id="houseHeavy" type="checkbox"> Heavy / difficult clearance (+£200)</label>
+            <label><input id="houseExtraWaste" type="checkbox"> Significant extra waste (+£250)</label>
           </div>
-          <div class="quote-preview full-house-preview"><span>Full house clearance price</span><strong id="fullHouseTotal">£0.00</strong></div>
+          <div class="quote-preview full-house-preview"><span>Complete property clearance price</span><strong id="fullHouseTotal">£0.00</strong></div>
           <p id="fullHouseBreakdown" class="muted"></p>
         </div>
       </section>

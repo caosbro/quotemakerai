@@ -177,7 +177,7 @@ function bindCore(){
   document.querySelectorAll("[data-payment-method]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-payment-method]").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");updatePaymentSummary()});
   document.querySelectorAll("[data-payment-status]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-payment-status]").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");updatePaymentSummary()});
   ["customerName","customerPhone","customerAddress","jobNotes","customLabour","customPrice"].forEach(id=>$(id).addEventListener("input",recalc));
-  ["fullHouseToggle","houseBedrooms","houseReception","houseBathrooms","houseKitchen","houseHallways","houseLoads","houseFrontGarden","houseBackGarden","houseGarage","houseShed","houseLoft","houseHeavy","houseExtraWaste"].forEach(id=>{const e=$(id);if(e){e.addEventListener("input",updateFullHouse);e.addEventListener("change",updateFullHouse)}});
+  ["fullHouseToggle","houseBedrooms","houseReception","houseBathrooms","houseKitchen","houseHallways","houseFrontGarden","houseBackGarden","houseGarage","houseShed","houseLoft","houseHeavy","houseExtraWaste","houseLoads"].forEach(id=>{const e=$(id);if(e){e.addEventListener("input",updateFullHouse);e.addEventListener("change",updateFullHouse)}});
   $("calculateBtn").onclick=()=>{recalc();toast("Quote calculated")};
   $("clearBtn").onclick=clearQuote;
   $("saveBtn").onclick=saveQuote;
@@ -259,7 +259,6 @@ function fullHousePrice(){
   const bathrooms=Number($('houseBathrooms')?.value)||0;
   const kitchen=Number($('houseKitchen')?.value)||0;
   const hallways=Number($('houseHallways')?.value)||0;
-  const loads=Math.max(1,Number($('houseLoads')?.value)||1);
   const front=Number($('houseFrontGarden')?.value)||0;
   const back=Number($('houseBackGarden')?.value)||0;
   const garage=$('houseGarage')?.checked;
@@ -267,29 +266,24 @@ function fullHousePrice(){
   const loft=$('houseLoft')?.checked;
   const heavy=$('houseHeavy')?.checked;
   const extraWaste=$('houseExtraWaste')?.checked;
+  const loads=Math.max(1,Number($('houseLoads')?.value)||1);
 
-  // Complete property clearance pricing: the aim is to empty the property
-  // and leave it ready to market, rather than pricing it as a simple waste job.
-  // Base prices: 1-bed £700, 2-bed £1,000, 3-bed £1,400, 4-bed £1,750,
-  // 5-bed £2,100, 6+ bed £2,500+.
-  const bedroomBase={0:0,1:700,2:1000,3:1400,4:1750,5:2100,6:2500};
-  let total=bedroomBase[Math.min(bedrooms,6)]||2500+(bedrooms-6)*250;
-  if(bedrooms===0) total=500;
-  if(reception>2) total+=(reception-2)*100;
-  if(reception<2) total-=Math.max(0,2-reception)*75;
-  if(bathrooms>1) total+=(bathrooms-1)*75;
-  if(bathrooms===0) total-=75;
-  if(!kitchen) total-=100;
-  if(hallways>1) total+=(hallways-1)*50;
-  total+=front+back;
+  // Complete property / ready-to-market pricing. Bedroom base includes a
+  // normal kitchen, one bathroom, two reception rooms and normal access.
+  const bedroomBase={0:0,1:700,2:1000,3:1400,4:1750,5:2100,6:2500,7:2900,8:3300};
+  let total=bedroomBase[bedrooms] ?? (700 + Math.max(0,bedrooms-1)*400);
+  total += Math.max(0,reception-2)*100;
+  total += Math.max(0,bathrooms-1)*75;
+  if(kitchen===0) total-=100;
+  total += front + back;
   if(garage) total+=200;
   if(shed) total+=150;
   if(loft) total+=150;
-  if(heavy) total+=300;
+  if(heavy) total+=200;
   if(extraWaste) total+=250;
   if(loads>1) total+=(loads-1)*250;
-  total=Math.max(0,Math.round(total/50)*50);
-  return {total,bedrooms,reception,bathrooms,kitchen,hallways,loads,front,back,garage,shed,loft,heavy,extraWaste};
+  total=Math.round(total/50)*50;
+  return {total,bedrooms,reception,bathrooms,kitchen,hallways,front,back,garage,shed,loft,heavy,extraWaste,loads};
 }
 function updateFullHouse(){
   const enabled=$('fullHouseToggle')?.checked;
@@ -298,7 +292,7 @@ function updateFullHouse(){
   const h=fullHousePrice();
   if($('fullHouseTotal'))$('fullHouseTotal').textContent=money(h.total);
   const extras=[];
-  if(h.front)extras.push(`front garden +£${h.front}`); if(h.back)extras.push(`rear garden +£${h.back}`); if(h.garage)extras.push('garage'); if(h.shed)extras.push('shed'); if(h.loft)extras.push('loft');
+  if(h.front)extras.push(`front garden £${h.front}`); if(h.back)extras.push(`rear garden £${h.back}`); if(h.garage)extras.push('garage'); if(h.shed)extras.push('shed'); if(h.loft)extras.push('loft');
   if(h.heavy)extras.push('heavy clearance'); if(h.extraWaste)extras.push('extra waste'); if(h.loads>1)extras.push(`${h.loads} loads`);
   if($('fullHouseBreakdown'))$('fullHouseBreakdown').textContent=`${h.bedrooms} bedroom${h.bedrooms===1?'':'s'}, ${h.reception} reception room${h.reception===1?'':'s'}, ${h.bathrooms} bathroom${h.bathrooms===1?'':'s'}${extras.length?` · Extras: ${extras.join(', ')}`:''}`;
   recalc();
@@ -334,8 +328,8 @@ function clearQuote(){
   document.querySelectorAll("#extras [data-extra].active").forEach(b=>b.classList.remove("active"));
   ["customerName","customerPhone","customerAddress","jobNotes","customLabour","customPrice","jobTime"].forEach(id=>{const e=$(id); if(e) e.value="";});
   if($("fullHouseToggle"))$("fullHouseToggle").checked=false;
-  ["houseFrontGarden","houseBackGarden","houseGarage","houseShed","houseHeavy","houseExtraWaste"].forEach(id=>{if($(id))$(id).checked=false});
-  if($("houseBedrooms"))$("houseBedrooms").value="3"; if($("houseReception"))$("houseReception").value="2"; if($("houseBathrooms"))$("houseBathrooms").value="1"; if($("houseKitchen"))$("houseKitchen").value="1"; if($("houseHallways"))$("houseHallways").value="1"; if($("houseLoads"))$("houseLoads").value="1";
+  ["houseGarage","houseShed","houseLoft","houseHeavy","houseExtraWaste"].forEach(id=>{if($(id))$(id).checked=false});
+  if($("houseBedrooms"))$("houseBedrooms").value="3"; if($("houseReception"))$("houseReception").value="2"; if($("houseBathrooms"))$("houseBathrooms").value="1"; if($("houseKitchen"))$("houseKitchen").value="1"; if($("houseHallways"))$("houseHallways").value="1"; if($("houseFrontGarden"))$("houseFrontGarden").value="0"; if($("houseBackGarden"))$("houseBackGarden").value="0"; if($("houseLoads"))$("houseLoads").value="1";
   if($('jobDate'))$('jobDate').value=new Date().toISOString().slice(0,10);
   document.querySelectorAll(".price-options button,[data-document-type],[data-payment-method],[data-payment-status]").forEach(b=>b.classList.remove("selected"));
   document.querySelector('[data-document-type="Quote"]').classList.add("selected");
