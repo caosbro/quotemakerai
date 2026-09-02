@@ -26,7 +26,7 @@ const DEFAULT_LOAD_LABOUR=60;
 const DEFAULT_BUSINESS={name:"Evans Property Clearance",phone:"07954130766",email:"evanspropertyclearance@gmail.com",facebook:""};
 function getBusiness(){try{return {...DEFAULT_BUSINESS,...JSON.parse(localStorage.getItem("epc_business")||"{}")}}catch{return {...DEFAULT_BUSINESS}}}
 function loadBusinessSettings(){const b=getBusiness();if($("businessNameSetting"))$("businessNameSetting").value=b.name;if($("businessPhoneSetting"))$("businessPhoneSetting").value=b.phone;if($("businessEmailSetting"))$("businessEmailSetting").value=b.email;if($("facebookPageSetting"))$("facebookPageSetting").value=b.facebook||""}
-function saveBusinessSettings(){const name=$("businessNameSetting").value.trim(),phone=$("businessPhoneSetting").value.trim(),email=$("businessEmailSetting").value.trim(),facebook=$("facebookPageSetting")?.value.trim()||"";if(!name||!phone||!email){toast("Complete all business details");return}if(facebook&&!/^https?:\/\/([a-z0-9-]+\.)?facebook\.com\//i.test(facebook)){toast("Enter a valid Facebook page link");return}localStorage.setItem("epc_business",JSON.stringify({name,phone,email,facebook}));toast("Business details saved ✓");renderDashboard()}
+function saveBusinessSettings(){const name=$("businessNameSetting").value.trim(),phone=$("businessPhoneSetting").value.trim(),email=$("businessEmailSetting").value.trim(),facebook=$("facebookPageSetting")?.value.trim()||"";if(!name||!phone||!email){toast("Complete all business details");return}if(facebook&&!/^https?:\/\/([a-z0-9-]+\.)?facebook\.com\//i.test(facebook)){toast("Enter a valid Facebook page link");return}const business={name,phone,email,facebook};localStorage.setItem("epc_business",JSON.stringify(business));idbSet("epc_business",business);toast("Business details saved ✓");renderDashboard()}
 
 function loadOwnerPin(){
   try{
@@ -41,7 +41,7 @@ function changeOwnerPin(){
   if(next!==confirm){toast("Passcodes do not match");return}
   if(next===CONFIG.pin){toast("Enter a different passcode");return}
   CONFIG.pin=next;
-  localStorage.setItem("epc_owner_pin",next);
+  localStorage.setItem("epc_owner_pin",next);idbSet("epc_owner_pin",next);
   $("newOwnerPin").value="";$("confirmOwnerPin").value="";
   toast("Owner passcode changed ✓");
 }
@@ -76,8 +76,8 @@ function saveDisposalCosts(){
   const labourInput=$("loadLabourSetting");
   const labour=labourInput?Number(labourInput.value):getLoadLabour();
   if(!Number.isFinite(labour)||labour<0){toast("Enter a valid labour amount per load");return}
-  localStorage.setItem("epc_disposal_costs",JSON.stringify(saved));
-  localStorage.setItem("epc_load_labour",String(Math.round(labour*100)/100));
+  localStorage.setItem("epc_disposal_costs",JSON.stringify(saved));idbSet("epc_disposal_costs",saved);
+  localStorage.setItem("epc_load_labour",String(Math.round(labour*100)/100));idbSet("epc_load_labour",Math.round(labour*100)/100);
   const history=(()=>{try{return JSON.parse(localStorage.getItem("epc_disposal_history")||"[]")}catch{return[]}})();
   history.unshift({date:todayISO(),costs:{...saved},previous});
   localStorage.setItem("epc_disposal_history",JSON.stringify(history.slice(0,30)));
@@ -87,12 +87,23 @@ function saveDisposalCosts(){
   toast("Disposal costs saved ✓");
 }
 loadDisposalCosts();
+
+// Persistent storage: keep the existing localStorage behaviour for speed, but
+// mirror quotes/settings into IndexedDB so closing the PWA does not wipe them.
+const EPC_DB_NAME="evans_clearance_db";
+const EPC_DB_VERSION=1;
+function openEpcDb(){return new Promise((resolve,reject)=>{try{const r=indexedDB.open(EPC_DB_NAME,EPC_DB_VERSION);r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains("data"))db.createObjectStore("data");};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);}catch(e){reject(e)}})}
+async function idbGet(key){try{const db=await openEpcDb();return await new Promise((resolve,reject)=>{const tx=db.transaction("data","readonly"),req=tx.objectStore("data").get(key);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});}catch{return null}}
+async function idbSet(key,value){try{const db=await openEpcDb();await new Promise((resolve,reject)=>{const tx=db.transaction("data","readwrite");tx.objectStore("data").put(value,key);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}catch{}}
 let state=loadState();
 const $=sel=> sel.startsWith("#")?document.querySelector(sel): (sel.includes("[")||sel.includes(".")||sel.includes(" "))?document.querySelector(sel):document.getElementById(sel);
 const money=n=>new Intl.NumberFormat("en-GB",{style:"currency",currency:"GBP"}).format(Number(n)||0);
 const todayISO=()=>new Date().toISOString();
 function loadState(){return JSON.parse(localStorage.getItem("epc_quotes")||"[]")}
-function saveState(){localStorage.setItem("epc_quotes",JSON.stringify(state))}
+function saveState(){
+  localStorage.setItem("epc_quotes",JSON.stringify(state));
+  idbSet("epc_quotes",state);
+}
 function nextDocumentNumber(type="Quote"){
   const prefix=type==="Invoice"?"EPC-I":"EPC-Q";
   const max=state.reduce((m,q)=>{
@@ -131,13 +142,30 @@ function buildExtras(){
   const extras=[["Difficult access",20],["Upstairs flats",50],["Heavy lifting",50]];
   $("extras").innerHTML=extras.map(([n,v])=>`<button data-extra="${n}" data-value="${v}">${n}<span>+${money(v)}</span></button>`).join("");
 }
-function init(){
+async function init(){
+  // Hydrate from IndexedDB when it has data. This survives normal app/browser closes.
+  try{
+    const saved=await idbGet("epc_quotes");
+    if(Array.isArray(saved)){state=saved;localStorage.setItem("epc_quotes",JSON.stringify(state));}
+    else if(state.length) await idbSet("epc_quotes",state);
+  }catch{}
   buildWaste();buildCommon();buildExtras();renderDisposalCostSettings();
   $("quoteNumber").value=nextQuote();
   $("customerName").value="";$("customerPhone").value="";$("customerAddress").value="";$("jobNotes").value="";
   if(!state.draft)state.draft={waste:{},extras:{},customLabour:0,priceMode:"standard",customPrice:0,paymentMethod:"Cash",paymentStatus:"Outstanding",documentType:"Quote"};
   bind();
   recalc();
+}
+function exportBackup(){
+  const payload={version:1,exportedAt:todayISO(),quotes:state,business:getBusiness(),ownerPin:localStorage.getItem("epc_owner_pin")||null,disposalCosts:JSON.parse(localStorage.getItem("epc_disposal_costs")||"null"),loadLabour:getLoadLabour(),disposalHistory:JSON.parse(localStorage.getItem("epc_disposal_history")||"[]")};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`evans-clearance-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast("Backup exported ✓");
+}
+async function importBackup(e){
+  const file=e.target.files?.[0];if(!file)return;
+  try{const payload=JSON.parse(await file.text());if(!Array.isArray(payload.quotes))throw new Error("Invalid backup");
+    state=payload.quotes;saveState();if(payload.business)localStorage.setItem("epc_business",JSON.stringify(payload.business));if(payload.ownerPin)localStorage.setItem("epc_owner_pin",payload.ownerPin);if(payload.disposalCosts)localStorage.setItem("epc_disposal_costs",JSON.stringify(payload.disposalCosts));if(Number.isFinite(Number(payload.loadLabour)))localStorage.setItem("epc_load_labour",String(payload.loadLabour));if(Array.isArray(payload.disposalHistory))localStorage.setItem("epc_disposal_history",JSON.stringify(payload.disposalHistory));
+    loadOwnerPin();loadDisposalCosts();loadBusinessSettings();renderDashboard();toast("Backup restored ✓");
+  }catch{toast("That backup file is not valid")};e.target.value="";
 }
 function bindCore(){
   $("wasteRows").onclick=e=>{const row=e.target.closest(".waste-row");if(!row)return;const key=row.dataset.key;const input=row.querySelector("[data-qty]");const step=Number(input.step);let v=Number(input.value)||0;if(e.target.dataset.act==="plus")v+=step;if(e.target.dataset.act==="minus")v=Math.max(0,v-step);input.value=cleanNum(v);recalc()};
@@ -177,6 +205,8 @@ function bindCore(){
   $("dashboardBack").onclick=()=>showScreen("ownerScreen");
   $("pinCancel").onclick=()=>$("pinModal").classList.add("hidden");
   $("pinSubmit").onclick=checkPin;
+  if($('exportDataBtn'))$('exportDataBtn').onclick=exportBackup;
+  if($('importDataInput'))$('importDataInput').onchange=importBackup;
   updateDocumentType();
 }
 function cleanNum(n){return Math.round(n*1000)/1000}
@@ -666,7 +696,13 @@ function bindEnhanced(){
   loadBusinessSettings();renderDisposalHistory();renderLearningRecords();
 }
 function bind(){bindCore();bindEnhanced()}
-function init(){
+async function init(){
+  // Hydrate from IndexedDB when it has data. This survives normal app/browser closes.
+  try{
+    const saved=await idbGet("epc_quotes");
+    if(Array.isArray(saved)){state=saved;localStorage.setItem("epc_quotes",JSON.stringify(state));}
+    else if(state.length) await idbSet("epc_quotes",state);
+  }catch{}
   buildWaste();buildCommon();buildExtras();renderDisposalCostSettings();loadBusinessSettings();
   if(!state.draft)state.draft={waste:{},extras:{},customLabour:0,priceMode:'standard',customPrice:0,paymentMethod:'Cash',paymentStatus:'Outstanding',documentType:'Quote'};
   $('quoteNumber').value=nextQuote();
