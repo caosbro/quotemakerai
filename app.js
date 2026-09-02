@@ -177,6 +177,7 @@ function bindCore(){
   document.querySelectorAll("[data-payment-method]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-payment-method]").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");updatePaymentSummary()});
   document.querySelectorAll("[data-payment-status]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-payment-status]").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");updatePaymentSummary()});
   ["customerName","customerPhone","customerAddress","jobNotes","customLabour","customPrice"].forEach(id=>$(id).addEventListener("input",recalc));
+  ["fullHouseToggle","houseBedrooms","houseReception","houseBathrooms","houseKitchen","houseHallways","houseLoads","houseFrontGarden","houseBackGarden","houseGarage","houseShed","houseHeavy","houseExtraWaste"].forEach(id=>{const e=$(id);if(e){e.addEventListener("input",updateFullHouse);e.addEventListener("change",updateFullHouse)}});
   $("calculateBtn").onclick=()=>{recalc();toast("Quote calculated")};
   $("clearBtn").onclick=clearQuote;
   $("saveBtn").onclick=saveQuote;
@@ -252,6 +253,45 @@ function loadQuoteLink(){
   if(decline)decline.onclick=()=>openWhatsApp(`Hi, I have a question about quote ${payload.number||""} for ${money(payload.quote)}. Please contact me to discuss it.`);
   return true;
 }
+function fullHousePrice(){
+  const bedrooms=Number($('houseBedrooms')?.value)||0;
+  const reception=Number($('houseReception')?.value)||0;
+  const bathrooms=Number($('houseBathrooms')?.value)||0;
+  const kitchen=Number($('houseKitchen')?.value)||0;
+  const hallways=Number($('houseHallways')?.value)||0;
+  const loads=Math.max(1,Number($('houseLoads')?.value)||1);
+  const front=$('houseFrontGarden')?.checked;
+  const back=$('houseBackGarden')?.checked;
+  const garage=$('houseGarage')?.checked;
+  const shed=$('houseShed')?.checked;
+  const heavy=$('houseHeavy')?.checked;
+  const extraWaste=$('houseExtraWaste')?.checked;
+
+  // Customer-facing full-house pricing. The standard 3-bed / 2-reception
+  // house is intentionally positioned around £2,000 before optional extras.
+  let total=800 + bedrooms*250 + reception*200 + bathrooms*100 + kitchen*150 + Math.max(0,hallways-1)*75;
+  if(front) total+=100;
+  if(back) total+=100;
+  if(garage) total+=150;
+  if(shed) total+=100;
+  if(heavy) total+=150;
+  if(extraWaste) total+=150;
+  if(loads>1) total+=(loads-1)*200;
+  total=Math.round(total/50)*50;
+  return {total,bedrooms,reception,bathrooms,kitchen,hallways,loads,front,back,garage,shed,heavy,extraWaste};
+}
+function updateFullHouse(){
+  const enabled=$('fullHouseToggle')?.checked;
+  $('fullHouseFields')?.classList.toggle('hidden',!enabled);
+  if(!enabled){ if($('fullHouseTotal'))$('fullHouseTotal').textContent='£0.00'; recalc(); return; }
+  const h=fullHousePrice();
+  if($('fullHouseTotal'))$('fullHouseTotal').textContent=money(h.total);
+  const extras=[];
+  if(h.front)extras.push('front garden'); if(h.back)extras.push('back garden'); if(h.garage)extras.push('garage'); if(h.shed)extras.push('shed');
+  if(h.heavy)extras.push('heavy clearance'); if(h.extraWaste)extras.push('extra waste'); if(h.loads>1)extras.push(`${h.loads} loads`);
+  if($('fullHouseBreakdown'))$('fullHouseBreakdown').textContent=`${h.bedrooms} bedroom${h.bedrooms===1?'':'s'}, ${h.reception} reception room${h.reception===1?'':'s'}, ${h.bathrooms} bathroom${h.bathrooms===1?'':'s'}${extras.length?` · Extras: ${extras.join(', ')}`:''}`;
+  recalc();
+}
 function getData(){
   const waste={};document.querySelectorAll(".waste-row").forEach(r=>waste[r.dataset.key]=Number(r.querySelector("[data-qty]").value)||0);
   const extras={};document.querySelectorAll("[data-extra].active").forEach(b=>extras[b.dataset.extra]=Number(b.dataset.value));
@@ -265,8 +305,11 @@ function getData(){
     const raw=$("customPrice").value;
     quote=raw==="" ? 0 : Math.max(0, Number(raw)||0);
   }
+  const fullHouseEnabled=Boolean($("fullHouseToggle")?.checked);
+  const fullHouse=fullHouseEnabled?fullHousePrice():null;
+  if(fullHouseEnabled && mode!=="custom") quote=fullHouse.total;
   quote=Math.max(0,quote);
-  return {waste,extras,extraTotal,wasteCost,labourBase,labour,totalCost,quote,mode,priceOverride:mode==="custom"};
+  return {waste,extras,extraTotal,wasteCost,labourBase,labour,totalCost,quote,mode,priceOverride:mode==="custom",fullHouseEnabled,fullHouse};
 }
 function jobType(w){
   const soil=w.soil>0,rubble=w.rubble>0,other=Object.entries(w).some(([k,v])=>v>0&&!["soil","rubble"].includes(k));
@@ -279,6 +322,9 @@ function clearQuote(){
   document.querySelectorAll("[data-qty]").forEach(i=>i.value=0);
   document.querySelectorAll("#extras [data-extra].active").forEach(b=>b.classList.remove("active"));
   ["customerName","customerPhone","customerAddress","jobNotes","customLabour","customPrice","jobTime"].forEach(id=>{const e=$(id); if(e) e.value="";});
+  if($("fullHouseToggle"))$("fullHouseToggle").checked=false;
+  ["houseFrontGarden","houseBackGarden","houseGarage","houseShed","houseHeavy","houseExtraWaste"].forEach(id=>{if($(id))$(id).checked=false});
+  if($("houseBedrooms"))$("houseBedrooms").value="3"; if($("houseReception"))$("houseReception").value="2"; if($("houseBathrooms"))$("houseBathrooms").value="1"; if($("houseKitchen"))$("houseKitchen").value="1"; if($("houseHallways"))$("houseHallways").value="1"; if($("houseLoads"))$("houseLoads").value="1";
   if($('jobDate'))$('jobDate').value=new Date().toISOString().slice(0,10);
   document.querySelectorAll(".price-options button,[data-document-type],[data-payment-method],[data-payment-status]").forEach(b=>b.classList.remove("selected"));
   document.querySelector('[data-document-type="Quote"]').classList.add("selected");

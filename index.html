@@ -49,6 +49,32 @@
         </div>
       </section>
 
+      <section class="card full-house-card">
+        <h2>🏠 Full House Clearance</h2>
+        <p class="muted">Quick pricing for complete house clearances. A standard 3-bedroom, 2-reception-room house is designed to land around £2,000–£2,300 depending on gardens and extras.</p>
+        <label class="toggle-row"><input id="fullHouseToggle" type="checkbox"> <span>Use Full House Clearance pricing</span></label>
+        <div id="fullHouseFields" class="hidden">
+          <div class="house-grid">
+            <label>Bedrooms<select id="houseBedrooms"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select></label>
+            <label>Living / reception rooms<select id="houseReception"><option value="0">0</option><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></label>
+            <label>Bathrooms<select id="houseBathrooms"><option value="0">0</option><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
+            <label>Kitchen<select id="houseKitchen"><option value="0">No</option><option value="1" selected>Yes</option></select></label>
+            <label>Hallways / landings<select id="houseHallways"><option value="0">None</option><option value="1" selected>1</option><option value="2">2</option><option value="3">3+</option></select></label>
+            <label>Additional loads<select id="houseLoads"><option value="1" selected>1 load</option><option value="2">2 loads</option><option value="3">3 loads</option><option value="4">4 loads</option><option value="5">5 loads</option><option value="6">6 loads</option></select></label>
+          </div>
+          <div class="check-grid">
+            <label><input id="houseFrontGarden" type="checkbox"> Front garden</label>
+            <label><input id="houseBackGarden" type="checkbox"> Back garden</label>
+            <label><input id="houseGarage" type="checkbox"> Garage</label>
+            <label><input id="houseShed" type="checkbox"> Shed / outbuilding</label>
+            <label><input id="houseHeavy" type="checkbox"> Heavy / difficult clearance</label>
+            <label><input id="houseExtraWaste" type="checkbox"> Significant extra waste</label>
+          </div>
+          <div class="quote-preview full-house-preview"><span>Full house clearance price</span><strong id="fullHouseTotal">£0.00</strong></div>
+          <p id="fullHouseBreakdown" class="muted"></p>
+        </div>
+      </section>
+
       <section class="card">
         <h2>Waste</h2>
         <div id="wasteRows"></div>
