@@ -23,10 +23,10 @@ const CONFIG={
 };
 const DEFAULT_DISPOSAL_COSTS=Object.fromEntries(Object.entries(CONFIG.waste).map(([k,v])=>[k,v.price]));
 const DEFAULT_LOAD_LABOUR=60;
-const DEFAULT_BUSINESS={name:"Evans Property Clearance",phone:"07954130766",email:"evanspropertyclearance@gmail.com",facebook:""};
+const DEFAULT_BUSINESS={name:"Evans Property Clearance",phone:"07954130766",email:"evanspropertyclearance@gmail.com",facebook:"https://www.facebook.com/share/1KGfWEi6iV/?mibextid=wwXIfr",googleReview:"https://g.page/r/CRI_c2kgf5hBECE/review"};
 function getBusiness(){try{return {...DEFAULT_BUSINESS,...JSON.parse(localStorage.getItem("epc_business")||"{}")}}catch{return {...DEFAULT_BUSINESS}}}
-function loadBusinessSettings(){const b=getBusiness();if($("businessNameSetting"))$("businessNameSetting").value=b.name;if($("businessPhoneSetting"))$("businessPhoneSetting").value=b.phone;if($("businessEmailSetting"))$("businessEmailSetting").value=b.email;if($("facebookPageSetting"))$("facebookPageSetting").value=b.facebook||""}
-function saveBusinessSettings(){const name=$("businessNameSetting").value.trim(),phone=$("businessPhoneSetting").value.trim(),email=$("businessEmailSetting").value.trim(),facebook=$("facebookPageSetting")?.value.trim()||"";if(!name||!phone||!email){toast("Complete all business details");return}if(facebook&&!/^https?:\/\/([a-z0-9-]+\.)?facebook\.com\//i.test(facebook)){toast("Enter a valid Facebook page link");return}const business={name,phone,email,facebook};localStorage.setItem("epc_business",JSON.stringify(business));idbSet("epc_business",business);toast("Business details saved ✓");renderDashboard()}
+function loadBusinessSettings(){const b=getBusiness();if($("businessNameSetting"))$("businessNameSetting").value=b.name;if($("businessPhoneSetting"))$("businessPhoneSetting").value=b.phone;if($("businessEmailSetting"))$("businessEmailSetting").value=b.email;if($("facebookPageSetting"))$("facebookPageSetting").value=b.facebook||"";if($("googleReviewSetting"))$("googleReviewSetting").value=b.googleReview||DEFAULT_BUSINESS.googleReview}
+function saveBusinessSettings(){const name=$("businessNameSetting").value.trim(),phone=$("businessPhoneSetting").value.trim(),email=$("businessEmailSetting").value.trim(),facebook=$("facebookPageSetting")?.value.trim()||"",googleReview=$("googleReviewSetting")?.value.trim()||"";if(!name||!phone||!email){toast("Complete all business details");return}if(facebook&&!/^https?:\/\/([a-z0-9-]+\.)?facebook\.com\//i.test(facebook)){toast("Enter a valid Facebook page link");return}if(!googleReview||!/^https?:\/\//i.test(googleReview)){toast("Enter a valid Google review link");return}const business={name,phone,email,facebook,googleReview};localStorage.setItem("epc_business",JSON.stringify(business));idbSet("epc_business",business);toast("Business details saved ✓");renderDashboard()}
 
 function loadOwnerPin(){
   try{
@@ -489,7 +489,7 @@ async function makePdfQuote(){
   if(type==="Invoice") {
     const reviewY=268;
     const facebook=getBusiness().facebook||"";
-    const google="https://g.page/r/CRI_c2kgf5hBECE/review";
+    const google=b.googleReview||DEFAULT_BUSINESS.googleReview;
     doc.setTextColor(17,24,39);doc.setFont(undefined,"bold");doc.setFontSize(9);
     doc.text("Happy with our service? We'd really appreciate a review.",16,reviewY);
     doc.setFont(undefined,"normal");doc.setFontSize(8);
@@ -700,7 +700,7 @@ function openNavigation(q){
 }
 function customerFeedbackMessage(q){
   const b=getBusiness(),name=q.name||'there',page=b.facebook||'';
-  const google='https://g.page/r/CRI_c2kgf5hBECE/review';
+  const google=b.googleReview||DEFAULT_BUSINESS.googleReview;
   return `${b.name}\n\nHi ${name}, thank you for choosing us for your property clearance. We hope you were happy with the service.\n\nIf you were happy with the service, we'd really appreciate it if you could leave us a review.\n\n⭐ Facebook${page?'\n'+page:''}\n⭐ Google\n${google}\n\nThank you again for choosing ${b.name}!\n${b.phone}`;
 }
 function sendFeedbackWhatsApp(q){
