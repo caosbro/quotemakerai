@@ -44,6 +44,8 @@
           <label class="wide">Address<textarea id="customerAddress" rows="2"></textarea></label>
           <label class="wide">Job notes<textarea id="jobNotes" rows="2"></textarea></label>
           <label>Quote number<input id="quoteNumber" readonly></label>
+          <label>Job date<input id="jobDate" type="date"></label>
+          <label>Job time<input id="jobTime" type="time"></label>
         </div>
       </section>
 
@@ -119,49 +121,46 @@
     </section>
 
     <section id="dashboardScreen" class="screen hidden">
-      <div class="dashboard-head">
-        <button id="dashboardBack">← Quote</button>
-        <h1>Owner Dashboard</h1>
+      <div class="dashboard-head"><button id="dashboardBack">← Quote</button><h1>Owner Dashboard</h1></div>
+      <div class="owner-nav">
+        <button class="selected" data-owner-tab="overview">📊 Dashboard</button>
+        <button data-owner-tab="jobs">📋 Jobs</button>
+        <button data-owner-tab="calendar">📅 Calendar</button>
+        <button data-owner-tab="payments">💷 Payments</button>
+        <button data-owner-tab="settings">⚙️ Settings</button>
       </div>
-      <div class="card owner-settings">
-        <h2>⚙️ Owner Settings</h2>
-        <p class="muted">Business controls are kept here and are only available after unlocking the Owners menu.</p>
-        <div class="settings-section">
-          <h3>💷 Disposal costs</h3>
-          <p class="muted">Change these whenever your disposal/tip prices go up or down. New rates are used for new quotes and AI estimates.</p>
-          <div id="disposalCostSettings"></div>
-          <button class="primary" id="saveDisposalCostsBtn" type="button">💾 SAVE DISPOSAL COSTS</button>
+
+      <div id="ownerTabOverview" class="owner-tab">
+        <div class="stats">
+          <div><span>Today's revenue</span><strong id="dailyRevenue">£0.00</strong></div>
+          <div><span>Today's profit</span><strong id="dailyProfit">£0.00</strong></div>
+          <div><span>Weekly profit</span><strong id="weeklyProfit">£0.00</strong></div>
+          <div><span>Monthly profit</span><strong id="monthlyProfit">£0.00</strong></div>
+          <div><span>Monthly revenue</span><strong id="monthlyRevenue">£0.00</strong></div>
+          <div><span>Outstanding</span><strong id="outstandingTotal">£0.00</strong></div>
         </div>
-        <div class="settings-section">
-          <h3>🔑 Change owner passcode</h3>
-          <p class="muted">Use 4 to 8 numbers. Your current passcode is never displayed.</p>
-          <label>New passcode<input id="newOwnerPin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" placeholder="New passcode"></label>
-          <label>Confirm new passcode<input id="confirmOwnerPin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" placeholder="Confirm passcode"></label>
-          <button id="changeOwnerPinBtn" type="button">🔐 CHANGE PASSCODE</button>
+        <div class="card"><h2>This week</h2><div class="week-stats">
+          <p>Quotes/jobs <strong id="weekJobCount">0</strong></p><p>Total quoted <strong id="weekQuoted">£0.00</strong></p><p>Total paid <strong id="weekPaid">£0.00</strong></p><p>Total outstanding <strong id="weekOutstanding">£0.00</strong></p><p>Total profit <strong id="weekProfit">£0.00</strong></p>
+        </div></div>
+        <div class="card"><h2>Business statistics</h2><div class="stats-mini">
+          <div><span>Total jobs</span><strong id="totalJobsStat">0</strong></div><div><span>Average job</span><strong id="averageJobStat">£0.00</strong></div><div><span>Completed</span><strong id="completedJobsStat">0</strong></div><div><span>Paid jobs</span><strong id="paidJobsStat">0</strong></div>
+        </div></div>
+        <div class="card"><h2>🤖 AI disposal-cost learning</h2><p id="dashboardAiLearning" class="muted">No real disposal costs recorded yet.</p></div>
+        <div class="card"><h2>Recent jobs</h2><div id="savedList"></div></div>
+      </div>
+
+      <div id="ownerTabJobs" class="owner-tab hidden"><div class="card"><h2>📋 Jobs</h2><p class="muted">Turn accepted quotes into booked jobs, then mark them completed.</p><div class="job-filters"><button class="selected" data-job-filter="active">ACTIVE</button><button data-job-filter="archived">ARCHIVED</button><button data-job-filter="all">ALL</button></div><div id="jobsList"></div></div></div>
+      <div id="ownerTabCalendar" class="owner-tab hidden"><div class="card"><div class="calendar-head"><button id="calendarPrev">‹</button><h2 id="calendarTitle">Calendar</h2><button id="calendarNext">›</button></div><div id="calendarGrid" class="calendar-grid"></div><div id="calendarJobs" class="calendar-jobs"></div></div></div>
+      <div id="ownerTabPayments" class="owner-tab hidden"><div class="card"><h2>💷 Payments</h2><div id="paymentsList"></div></div></div>
+
+      <div id="ownerTabSettings" class="owner-tab hidden">
+        <div class="card owner-settings"><h2>⚙️ Owner Settings</h2><p class="muted">Business controls are kept here and are only available after unlocking the Owners menu.</p>
+          <div class="settings-section"><h3>💷 Disposal costs</h3><p class="muted">Change these whenever your disposal/tip prices go up or down. New rates are used for new quotes and AI estimates.</p><div id="disposalCostSettings"></div><button class="primary" id="saveDisposalCostsBtn" type="button">💾 SAVE DISPOSAL COSTS</button></div>
+          <div class="settings-section"><h3>🔑 Change owner passcode</h3><p class="muted">Use 4 to 8 numbers. Your current passcode is never displayed.</p><label>New passcode<input id="newOwnerPin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" placeholder="New passcode"></label><label>Confirm new passcode<input id="confirmOwnerPin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" placeholder="Confirm passcode"></label><button id="changeOwnerPinBtn" type="button">🔐 CHANGE PASSCODE</button></div>
+          <div class="settings-section"><h3>🏢 Business details</h3><p class="muted">These details can be changed without editing the app.</p><label>Business name<input id="businessNameSetting"></label><label>Phone<input id="businessPhoneSetting" type="tel"></label><label>Email<input id="businessEmailSetting" type="email"></label><button class="primary" id="saveBusinessSettingsBtn" type="button">💾 SAVE BUSINESS DETAILS</button></div>
+          <div class="settings-section"><h3>🗑️ Waste price history</h3><p class="muted">See when disposal rates were changed.</p><div id="disposalHistory"></div></div>
+          <div class="settings-section"><h3>🤖 AI learning records</h3><p id="learningRecordCount" class="muted">No records yet.</p><button id="resetAiLearningBtn" type="button">RESET AI LEARNING RECORDS</button></div>
         </div>
-      </div>
-      <div class="stats">
-        <div><span>Daily profit</span><strong id="dailyProfit">£0.00</strong></div>
-        <div><span>Weekly profit</span><strong id="weeklyProfit">£0.00</strong></div>
-        <div><span>Monthly profit</span><strong id="monthlyProfit">£0.00</strong></div>
-        <div><span>Outstanding</span><strong id="outstandingTotal">£0.00</strong></div>
-      </div>
-      <div class="card">
-        <h2>This week</h2>
-        <div class="week-stats">
-          <p>Total quoted <strong id="weekQuoted">£0.00</strong></p>
-          <p>Total paid <strong id="weekPaid">£0.00</strong></p>
-          <p>Total outstanding <strong id="weekOutstanding">£0.00</strong></p>
-          <p>Total profit <strong id="weekProfit">£0.00</strong></p>
-        </div>
-      </div>
-      <div class="card">
-        <h2>🤖 AI disposal-cost learning</h2>
-        <p id="dashboardAiLearning" class="muted">No real disposal costs recorded yet.</p>
-      </div>
-      <div class="card">
-        <h2>Saved quotes</h2>
-        <div id="savedList"></div>
       </div>
     </section>
   </main>
