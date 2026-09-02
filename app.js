@@ -22,10 +22,11 @@ const CONFIG={
   }
 };
 const DEFAULT_DISPOSAL_COSTS=Object.fromEntries(Object.entries(CONFIG.waste).map(([k,v])=>[k,v.price]));
-const DEFAULT_BUSINESS={name:"Evans Property Clearance",phone:"07954130766",email:"evanspropertyclearance@gmail.com"};
+const DEFAULT_LOAD_LABOUR=60;
+const DEFAULT_BUSINESS={name:"Evans Property Clearance",phone:"07954130766",email:"evanspropertyclearance@gmail.com",facebook:""};
 function getBusiness(){try{return {...DEFAULT_BUSINESS,...JSON.parse(localStorage.getItem("epc_business")||"{}")}}catch{return {...DEFAULT_BUSINESS}}}
-function loadBusinessSettings(){const b=getBusiness();if($("businessNameSetting"))$("businessNameSetting").value=b.name;if($("businessPhoneSetting"))$("businessPhoneSetting").value=b.phone;if($("businessEmailSetting"))$("businessEmailSetting").value=b.email}
-function saveBusinessSettings(){const name=$("businessNameSetting").value.trim(),phone=$("businessPhoneSetting").value.trim(),email=$("businessEmailSetting").value.trim();if(!name||!phone||!email){toast("Complete all business details");return}localStorage.setItem("epc_business",JSON.stringify({name,phone,email}));toast("Business details saved ✓");renderDashboard()}
+function loadBusinessSettings(){const b=getBusiness();if($("businessNameSetting"))$("businessNameSetting").value=b.name;if($("businessPhoneSetting"))$("businessPhoneSetting").value=b.phone;if($("businessEmailSetting"))$("businessEmailSetting").value=b.email;if($("facebookPageSetting"))$("facebookPageSetting").value=b.facebook||""}
+function saveBusinessSettings(){const name=$("businessNameSetting").value.trim(),phone=$("businessPhoneSetting").value.trim(),email=$("businessEmailSetting").value.trim(),facebook=$("facebookPageSetting")?.value.trim()||"";if(!name||!phone||!email){toast("Complete all business details");return}if(facebook&&!/^https?:\/\/([a-z0-9-]+\.)?facebook\.com\//i.test(facebook)){toast("Enter a valid Facebook page link");return}localStorage.setItem("epc_business",JSON.stringify({name,phone,email,facebook}));toast("Business details saved ✓");renderDashboard()}
 
 function loadOwnerPin(){
   try{
@@ -45,6 +46,9 @@ function changeOwnerPin(){
   toast("Owner passcode changed ✓");
 }
 loadOwnerPin();
+function getLoadLabour(){
+  try{const n=Number(localStorage.getItem("epc_load_labour"));return Number.isFinite(n)&&n>=0?n:DEFAULT_LOAD_LABOUR}catch{return DEFAULT_LOAD_LABOUR}
+}
 function loadDisposalCosts(){
   try{
     const saved=JSON.parse(localStorage.getItem("epc_disposal_costs")||"null");
@@ -56,7 +60,7 @@ function loadDisposalCosts(){
 function renderDisposalCostSettings(){
   const el=$("disposalCostSettings");
   if(!el)return;
-  el.innerHTML=Object.entries(CONFIG.waste).map(([key,w])=>`<label class="cost-setting-row"><span>${w.label} <small>(${w.unit})</small></span><input data-disposal-cost="${key}" type="number" min="0" step="0.01" inputmode="decimal" value="${w.price}"></label>`).join("");
+  el.innerHTML=Object.entries(CONFIG.waste).map(([key,w])=>`<label class="cost-setting-row"><span>${w.label} <small>(${w.unit})</small></span><input data-disposal-cost="${key}" type="number" min="0" step="0.01" inputmode="decimal" value="${w.price}"></label>`).join("")+`<label class="cost-setting-row"><span>Labour per load <small>(each load)</small></span><input id="loadLabourSetting" type="number" min="0" step="0.01" inputmode="decimal" value="${getLoadLabour()}"></label><p class="muted">This labour amount is added to every tracked load when calculating the job's actual load cost.</p>`;
 }
 function saveDisposalCosts(){
   const saved={};
@@ -69,7 +73,11 @@ function saveDisposalCosts(){
   if(Object.keys(saved).length!==Object.keys(CONFIG.waste).length)return;
   const previous=Object.fromEntries(Object.entries(CONFIG.waste).map(([k,v])=>[k,v.price]));
   Object.entries(saved).forEach(([k,v])=>CONFIG.waste[k].price=v);
+  const labourInput=$("loadLabourSetting");
+  const labour=labourInput?Number(labourInput.value):getLoadLabour();
+  if(!Number.isFinite(labour)||labour<0){toast("Enter a valid labour amount per load");return}
   localStorage.setItem("epc_disposal_costs",JSON.stringify(saved));
+  localStorage.setItem("epc_load_labour",String(Math.round(labour*100)/100));
   const history=(()=>{try{return JSON.parse(localStorage.getItem("epc_disposal_history")||"[]")}catch{return[]}})();
   history.unshift({date:todayISO(),costs:{...saved},previous});
   localStorage.setItem("epc_disposal_history",JSON.stringify(history.slice(0,30)));
@@ -539,11 +547,50 @@ function customerMessage(q,type='quote'){
 function sendQuoteWhatsApp(q=getSelectedQuote()){window.open('https://wa.me/?text='+encodeURIComponent(customerMessage(q,'quote')),'_blank')}
 function sendBookingWhatsApp(q){window.open('https://wa.me/?text='+encodeURIComponent(customerMessage(q,'booking')),'_blank')}
 function sendReminderWhatsApp(q){window.open('https://wa.me/?text='+encodeURIComponent(customerMessage(q,'reminder')),'_blank')}
+function openNavigation(q){
+  const address=(q.address||'').trim();
+  if(!address){toast('This job has no address');return}
+  const url='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(address);
+  window.open(url,'_blank');
+}
+function customerFeedbackMessage(q){
+  const b=getBusiness(),name=q.name||'there',page=b.facebook||'';
+  return `${b.name}\n\nHi ${name}, thank you for choosing us for your property clearance. We hope you were happy with the service.\n\nIf you were happy with the service, we'd really appreciate it if you could leave us a review on our Facebook page${page?' here: '+page:'.'}\n\nThank you again for choosing ${b.name}!\n${b.phone}`;
+}
+function sendFeedbackWhatsApp(q){
+  const b=getBusiness();
+  if(!b.facebook){toast('Add your Facebook page link in Owner Settings first');return}
+  window.open('https://wa.me/?text='+encodeURIComponent(customerFeedbackMessage(q)),'_blank');
+}
+function openLoadTracking(i){
+  const q=state[i];if(!q)return;
+  window.currentLoadJobIndex=i;
+  if($("loadJobTitle"))$("loadJobTitle").textContent=`${q.number} · ${q.name||'Customer'}`;
+  renderLoadTracking(q);
+  $("loadModal").classList.remove('hidden');
+}
+function renderLoadTracking(q){
+  const loads=Array.isArray(q.loads)?q.loads:[];
+  if($("loadList"))$("loadList").innerHTML=loads.length?loads.map((l,n)=>`<div class="quote-record"><strong>Load ${n+1}</strong><div class="muted">${Number(l.tonnes||0).toFixed(2)} tonnes${l.actualDisposalCost!=null?' · Actual disposal '+money(l.actualDisposalCost):''}</div><button data-remove-load="${n}" type="button">REMOVE</button></div>`).join(''):'<p class="muted">No loads recorded yet.</p>';
+  const total=loads.reduce((a,l)=>a+Number(l.tonnes||0),0),actual=loads.reduce((a,l)=>a+(Number(l.actualDisposalCost)||0),0),labour=loads.filter(l=>l.actualDisposalCost!=null).length*getLoadLabour(),combined=actual+labour;
+  if($("loadTotals"))$("loadTotals").textContent=`Total tracked weight: ${total.toFixed(2)} tonnes · Disposal: ${money(actual)} · Load labour: ${money(labour)} · Total actual load cost: ${money(combined)}`;
+}
+function addLoad(){
+  const i=window.currentLoadJobIndex;if(!Number.isInteger(i)||!state[i])return;
+  const tonnes=Number($("loadWeight").value),actualRaw=$("loadDisposalCost").value.trim(),actual=actualRaw===''?null:Number(actualRaw);
+  if(!Number.isFinite(tonnes)||tonnes<=0){toast('Enter a load weight');return}
+  if(actual!==null&&(!Number.isFinite(actual)||actual<0)){toast('Enter a valid disposal cost');return}
+  const q=state[i];q.loads=Array.isArray(q.loads)?q.loads:[];q.loads.push({tonnes:Number(tonnes.toFixed(2)),actualDisposalCost:actual===null?null:Number(actual.toFixed(2)),date:todayISO()});saveState();$("loadWeight").value='';$("loadDisposalCost").value='';renderLoadTracking(q);renderDashboard();toast('Load added ✓');
+}
+function removeLoad(n){const i=window.currentLoadJobIndex;if(!Number.isInteger(i)||!state[i])return;const q=state[i];if(!Array.isArray(q.loads))return;q.loads.splice(n,1);saveState();renderLoadTracking(q);renderDashboard();toast('Load removed')}
 function renderJobCard(q,i,mode='jobs'){
   const status=jobStatus(q), actions=[];
   if(status==='Quoted')actions.push(`<button data-job-action="book" data-index="${i}">📅 BOOK JOB</button>`);
   if(status==='Booked')actions.push(`<button data-job-action="complete" data-index="${i}">✅ COMPLETE</button>`);
   if(status!=='Cancelled'&&status!=='Archived')actions.push(`<button data-job-action="sendbooking" data-index="${i}">💬 SEND MESSAGE</button>`);
+  if(q.address)actions.push(`<button data-job-action="navigate" data-index="${i}">📍 NAVIGATE</button>`);
+  if(status==='Booked'||status==='Completed')actions.push(`<button data-job-action="loads" data-index="${i}">🚛 LOAD TRACKING</button>`);
+  if(status==='Completed')actions.push(`<button data-job-action="feedback" data-index="${i}">⭐ REVIEW REQUEST</button>`);
   if(status==='Quoted'||status==='Booked')actions.push(`<button data-job-action="cancel" data-index="${i}">❌ CANCEL</button>`);
   actions.push(`<button data-job-action="load" data-index="${i}">✏️ LOAD QUOTE</button>`);
   if(q.paymentStatus==='Outstanding'||!q.paymentStatus)actions.push(`<button data-job-action="paid" data-index="${i}">💷 MARK PAID</button>`);else actions.push(`<button data-job-action="outstanding" data-index="${i}">⏳ UNPAID</button>`);
@@ -592,7 +639,7 @@ function loadQuoteIntoForm(q){
   document.querySelectorAll('[data-payment-method]').forEach(b=>b.classList.toggle('selected',b.dataset.paymentMethod===(q.paymentMethod||'Cash')));document.querySelectorAll('[data-payment-status]').forEach(b=>b.classList.toggle('selected',b.dataset.paymentStatus===(q.paymentStatus||'Outstanding')));
   document.querySelectorAll('[data-document-type]').forEach(b=>b.classList.toggle('selected',b.dataset.documentType===(q.documentType||'Quote')));updateDocumentType();recalc();toast('Quote loaded ✓');
 }
-function handleJobAction(e){const b=e.target.closest('[data-job-action]');if(!b)return;const i=Number(b.dataset.index),a=b.dataset.jobAction,q=state[i];if(!q)return;if(a==='book')bookJob(i);if(a==='complete')completeJob(i);if(a==='paid')markPaid(i);if(a==='outstanding')markOutstanding(i);if(a==='cancel')cancelJob(i);if(a==='archive')archiveJob(i);if(a==='restore')restoreJob(i);if(a==='cost')showCosts(q);if(a==='load')loadQuoteIntoForm(q);if(a==='sendbooking')sendBookingWhatsApp(q);if(a==='reminder')sendReminderWhatsApp(q)}
+function handleJobAction(e){const b=e.target.closest('[data-job-action]');if(!b)return;const i=Number(b.dataset.index),a=b.dataset.jobAction,q=state[i];if(!q)return;if(a==='book')bookJob(i);if(a==='complete')completeJob(i);if(a==='paid')markPaid(i);if(a==='outstanding')markOutstanding(i);if(a==='cancel')cancelJob(i);if(a==='archive')archiveJob(i);if(a==='restore')restoreJob(i);if(a==='cost')showCosts(q);if(a==='load')loadQuoteIntoForm(q);if(a==='sendbooking')sendBookingWhatsApp(q);if(a==='reminder')sendReminderWhatsApp(q);if(a==='navigate')openNavigation(q);if(a==='loads')openLoadTracking(i);if(a==='feedback')sendFeedbackWhatsApp(q)}
 function renderDashboard(){
   const now=new Date(),day=now.toISOString().slice(0,10),weekStart=new Date(now);weekStart.setDate(now.getDate()-((now.getDay()+6)%7));weekStart.setHours(0,0,0,0),month=now.getMonth();
   const paid=q=>q.paymentStatus==='Paid';
@@ -612,6 +659,7 @@ function bindEnhanced(){
   document.querySelectorAll('[data-job-filter]').forEach(b=>b.onclick=()=>{jobsFilter=b.dataset.jobFilter;renderJobsList()});
   $('savedList')?.addEventListener('click',handleJobAction);$('jobsList')?.addEventListener('click',handleJobAction);$('paymentsList')?.addEventListener('click',handleJobAction);$('calendarJobs')?.addEventListener('click',handleJobAction);
   $('calendarGrid')?.addEventListener('click',e=>{const b=e.target.closest('[data-cal-date]');if(b)renderCalendarJobs(b.dataset.calDate)});
+  $('closeLoadModal')?.addEventListener('click',()=>$('loadModal').classList.add('hidden'));$('addLoadBtn')?.addEventListener('click',addLoad);$('loadList')?.addEventListener('click',e=>{const b=e.target.closest('[data-remove-load]');if(b)removeLoad(Number(b.dataset.removeLoad))});
   $('calendarPrev')?.addEventListener('click',()=>{calendarCursor.setMonth(calendarCursor.getMonth()-1);renderCalendar()});$('calendarNext')?.addEventListener('click',()=>{calendarCursor.setMonth(calendarCursor.getMonth()+1);renderCalendar()});
   $('saveBusinessSettingsBtn')?.addEventListener('click',saveBusinessSettings);
   $('resetAiLearningBtn')?.addEventListener('click',()=>{if(confirm('Reset all saved AI disposal-cost learning records?')){localStorage.removeItem('epc_ai_learning');renderLearningRecords();if($('dashboardAiLearning'))$('dashboardAiLearning').textContent=getAiLearningStatus();toast('AI learning records reset')}});

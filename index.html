@@ -155,15 +155,26 @@
 
       <div id="ownerTabSettings" class="owner-tab hidden">
         <div class="card owner-settings"><h2>⚙️ Owner Settings</h2><p class="muted">Business controls are kept here and are only available after unlocking the Owners menu.</p>
-          <div class="settings-section"><h3>💷 Disposal costs</h3><p class="muted">Change these whenever your disposal/tip prices go up or down. New rates are used for new quotes and AI estimates.</p><div id="disposalCostSettings"></div><button class="primary" id="saveDisposalCostsBtn" type="button">💾 SAVE DISPOSAL COSTS</button></div>
+          <div class="settings-section"><h3>💷 Disposal costs & load labour</h3><p class="muted">Change these whenever your disposal/tip prices go up or down. New rates are used for new quotes and AI estimates. You can also set the labour added to each tracked load.</p><div id="disposalCostSettings"></div><button class="primary" id="saveDisposalCostsBtn" type="button">💾 SAVE DISPOSAL COSTS</button></div>
           <div class="settings-section"><h3>🔑 Change owner passcode</h3><p class="muted">Use 4 to 8 numbers. Your current passcode is never displayed.</p><label>New passcode<input id="newOwnerPin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" placeholder="New passcode"></label><label>Confirm new passcode<input id="confirmOwnerPin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" placeholder="Confirm passcode"></label><button id="changeOwnerPinBtn" type="button">🔐 CHANGE PASSCODE</button></div>
-          <div class="settings-section"><h3>🏢 Business details</h3><p class="muted">These details can be changed without editing the app.</p><label>Business name<input id="businessNameSetting"></label><label>Phone<input id="businessPhoneSetting" type="tel"></label><label>Email<input id="businessEmailSetting" type="email"></label><button class="primary" id="saveBusinessSettingsBtn" type="button">💾 SAVE BUSINESS DETAILS</button></div>
+          <div class="settings-section"><h3>🏢 Business details</h3><p class="muted">These details can be changed without editing the app.</p><label>Business name<input id="businessNameSetting"></label><label>Phone<input id="businessPhoneSetting" type="tel"></label><label>Email<input id="businessEmailSetting" type="email"></label><label>Facebook page link<input id="facebookPageSetting" type="url" placeholder="https://www.facebook.com/your-page"></label><button class="primary" id="saveBusinessSettingsBtn" type="button">💾 SAVE BUSINESS DETAILS</button></div>
           <div class="settings-section"><h3>🗑️ Waste price history</h3><p class="muted">See when disposal rates were changed.</p><div id="disposalHistory"></div></div>
           <div class="settings-section"><h3>🤖 AI learning records</h3><p id="learningRecordCount" class="muted">No records yet.</p><button id="resetAiLearningBtn" type="button">RESET AI LEARNING RECORDS</button></div>
         </div>
       </div>
     </section>
   </main>
+
+  <div id="loadModal" class="modal hidden">
+    <div class="modal-panel">
+      <button class="close" id="closeLoadModal">×</button>
+      <h2>🚛 Load tracking</h2>
+      <p id="loadJobTitle" class="muted"></p>
+      <div id="loadList"></div>
+      <div class="settings-section"><h3>Add a load</h3><label>Load weight (tonnes)<input id="loadWeight" type="number" min="0" step="0.01" inputmode="decimal" placeholder="e.g. 0.80"></label><label>Actual disposal cost (£)<input id="loadDisposalCost" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Optional"></label><p class="muted">Load labour is added automatically from Owner Settings.</p><button class="primary" id="addLoadBtn" type="button">➕ ADD LOAD</button></div>
+      <p id="loadTotals" class="muted"></p>
+    </div>
+  </div>
 
   <div id="costDrawer" class="drawer hidden">
     <div class="drawer-panel">
