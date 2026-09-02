@@ -218,7 +218,7 @@ function decodeQuoteLink(raw){try{let s=raw.replace(/-/g,'+').replace(/_/g,'/');
 function createQuoteLink(){
   recalc();
   const d=getData(),b=getBusiness(),p=getPayment();
-  const payload={v:2,name:$("customerName").value.trim(),phone:$("customerPhone").value.trim(),address:$("customerAddress").value.trim(),notes:$("jobNotes").value.trim(),quote:d.quote,number:$("quoteNumber").value||nextQuote(),type:getDocumentType(),business:{name:b.name,phone:b.phone,email:b.email}};
+  const payload={v:2,name:$("customerName").value.trim(),phone:$("customerPhone").value.trim(),address:$("customerAddress").value.trim(),notes:$("jobNotes").value.trim(),quote:d.quote,number:$("quoteNumber").value||nextQuote(),type:getDocumentType(),business:{name:b.name,phone:b.phone,email:b.email,facebook:b.facebook||"",googleReview:b.googleReview||DEFAULT_BUSINESS.googleReview}};
   if(!payload.name&&!payload.address){toast("Add customer details first");return}
   const url=location.origin+'/customer.html#quote='+encodeQuoteLink(payload);
   const pendingJob=getSelectedQuote();
@@ -370,8 +370,12 @@ function customerQuoteText(){
   const name=$("customerName").value.trim()||"Customer";
   const address=$("customerAddress").value.trim();
   const notes=$("jobNotes").value.trim();
-  return `EVANS PROPERTY CLEARANCE\\n\\nWaste Removal Quote\\n\\nCustomer: ${name}${address?`\\nAddress: ${address}`:""}\\n\\nQuote total: ${money(d.quote)}${notes?`\\n\\nJob notes: ${notes}`:""}\\n\\nThank you for choosing Evans Property Clearance.`;
+  const b=getBusiness();
+  const type=getDocumentType();
+  const review=type==="Invoice"?`\n\n⭐ Happy with our service? We'd really appreciate a review.\n\n⭐ Facebook\n${b.facebook||""}\n⭐ Google\n${b.googleReview||DEFAULT_BUSINESS.googleReview}`:"";
+  return `${b.name}\n\n${type==="Invoice"?"Invoice":"Waste Removal Quote"}\n\nCustomer: ${name}${address?`\nAddress: ${address}`:""}\n\n${type==="Invoice"?"Amount due":"Quote total"}: ${money(d.quote)}${notes?`\n\nJob notes: ${notes}`:""}\n\nThank you for choosing ${b.name}.${review}`;
 }
+
 function sendWhatsApp(){
   const text=encodeURIComponent(customerQuoteText());
   window.open(`https://wa.me/?text=${text}`,"_blank");
@@ -489,7 +493,7 @@ async function makePdfQuote(){
   if(type==="Invoice") {
     const reviewY=268;
     const facebook=getBusiness().facebook||"";
-    const google=b.googleReview||DEFAULT_BUSINESS.googleReview;
+    const google=getBusiness().googleReview||DEFAULT_BUSINESS.googleReview;
     doc.setTextColor(17,24,39);doc.setFont(undefined,"bold");doc.setFontSize(9);
     doc.text("Happy with our service? We'd really appreciate a review.",16,reviewY);
     doc.setFont(undefined,"normal");doc.setFontSize(8);
@@ -700,7 +704,7 @@ function openNavigation(q){
 }
 function customerFeedbackMessage(q){
   const b=getBusiness(),name=q.name||'there',page=b.facebook||'';
-  const google=b.googleReview||DEFAULT_BUSINESS.googleReview;
+  const google=getBusiness().googleReview||DEFAULT_BUSINESS.googleReview;
   return `${b.name}\n\nHi ${name}, thank you for choosing us for your property clearance. We hope you were happy with the service.\n\nIf you were happy with the service, we'd really appreciate it if you could leave us a review.\n\n⭐ Facebook${page?'\n'+page:''}\n⭐ Google\n${google}\n\nThank you again for choosing ${b.name}!\n${b.phone}`;
 }
 function sendFeedbackWhatsApp(q){
