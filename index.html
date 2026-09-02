@@ -52,13 +52,6 @@
         <div id="wasteRows"></div>
       </section>
 
-      <section class="card owner-cost-settings">
-        <h2>⚙️ Disposal costs</h2>
-        <p class="muted">Owner only. Change these whenever your disposal/tip prices go up or down. The new rates are saved on this device and are used for new quotes and AI estimates.</p>
-        <div id="disposalCostSettings"></div>
-        <button class="primary" id="saveDisposalCostsBtn" type="button">💾 SAVE DISPOSAL COSTS</button>
-      </section>
-
       <section class="card">
         <h2>Common items</h2>
         <div class="item-grid" id="commonItems"></div>
@@ -129,6 +122,23 @@
       <div class="dashboard-head">
         <button id="dashboardBack">← Quote</button>
         <h1>Owner Dashboard</h1>
+      </div>
+      <div class="card owner-settings">
+        <h2>⚙️ Owner Settings</h2>
+        <p class="muted">Business controls are kept here and are only available after unlocking the Owners menu.</p>
+        <div class="settings-section">
+          <h3>💷 Disposal costs</h3>
+          <p class="muted">Change these whenever your disposal/tip prices go up or down. New rates are used for new quotes and AI estimates.</p>
+          <div id="disposalCostSettings"></div>
+          <button class="primary" id="saveDisposalCostsBtn" type="button">💾 SAVE DISPOSAL COSTS</button>
+        </div>
+        <div class="settings-section">
+          <h3>🔑 Change owner passcode</h3>
+          <p class="muted">Use 4 to 8 numbers. Your current passcode is never displayed.</p>
+          <label>New passcode<input id="newOwnerPin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" placeholder="New passcode"></label>
+          <label>Confirm new passcode<input id="confirmOwnerPin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" placeholder="Confirm passcode"></label>
+          <button id="changeOwnerPinBtn" type="button">🔐 CHANGE PASSCODE</button>
+        </div>
       </div>
       <div class="stats">
         <div><span>Daily profit</span><strong id="dailyProfit">£0.00</strong></div>
@@ -220,7 +230,7 @@
       <input id="pinInput" type="password" inputmode="numeric" maxlength="8" autocomplete="off">
       <button class="primary" id="pinSubmit">UNLOCK</button>
       <button id="pinCancel">CANCEL</button>
-      <small>Default PIN: 2460. Change it in Settings in the app code before use.</small>
+      <small>Your owner passcode is private. If you forget it, it cannot be displayed here.</small>
     </div>
   </div>
 

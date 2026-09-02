@@ -22,6 +22,24 @@ const CONFIG={
   }
 };
 const DEFAULT_DISPOSAL_COSTS=Object.fromEntries(Object.entries(CONFIG.waste).map(([k,v])=>[k,v.price]));
+function loadOwnerPin(){
+  try{
+    const saved=localStorage.getItem("epc_owner_pin");
+    if(saved && /^\d{4,8}$/.test(saved)) CONFIG.pin=saved;
+  }catch{}
+}
+function changeOwnerPin(){
+  const next=$("newOwnerPin").value.trim();
+  const confirm=$("confirmOwnerPin").value.trim();
+  if(!/^\d{4,8}$/.test(next)){toast("Passcode must be 4 to 8 numbers");return}
+  if(next!==confirm){toast("Passcodes do not match");return}
+  if(next===CONFIG.pin){toast("Enter a different passcode");return}
+  CONFIG.pin=next;
+  localStorage.setItem("epc_owner_pin",next);
+  $("newOwnerPin").value="";$("confirmOwnerPin").value="";
+  toast("Owner passcode changed ✓");
+}
+loadOwnerPin();
 function loadDisposalCosts(){
   try{
     const saved=JSON.parse(localStorage.getItem("epc_disposal_costs")||"null");
@@ -117,6 +135,7 @@ function bind(){
   $("clearBtn").onclick=clearQuote;
   $("saveBtn").onclick=saveQuote;
   $("saveDisposalCostsBtn").onclick=saveDisposalCosts;
+  $("changeOwnerPinBtn").onclick=changeOwnerPin;
   $("whatsappBtn").onclick=sendWhatsApp;
   $("pdfBtn").onclick=makePdfQuote;
   $("customerPdfBtn").onclick=makePdfQuote;
