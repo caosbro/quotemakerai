@@ -485,6 +485,24 @@ async function makePdfQuote(){
   let ty=Math.min(Math.max(y+4,228),252);doc.setTextColor(17,24,39);doc.setFont(undefined,"bold");doc.setFontSize(9);doc.text("Terms & conditions",16,ty);ty+=5;doc.setFont(undefined,"normal");doc.setFontSize(8);
   terms.forEach(t=>{const lines=doc.splitTextToSize("• "+t,178).slice(0,2);doc.text(lines,16,ty);ty+=lines.length*3.6+1;});
 
+  // Review request on customer invoices: give customers the choice of Facebook or Google.
+  if(type==="Invoice") {
+    const reviewY=268;
+    const facebook=getBusiness().facebook||"";
+    const google="https://g.page/r/CRI_c2kgf5hBECE/review";
+    doc.setTextColor(17,24,39);doc.setFont(undefined,"bold");doc.setFontSize(9);
+    doc.text("Happy with our service? We'd really appreciate a review.",16,reviewY);
+    doc.setFont(undefined,"normal");doc.setFontSize(8);
+    doc.text("Leave a review on:",16,reviewY+5);
+    let rx=45;
+    if(facebook){
+      doc.setTextColor(17,24,39);doc.textWithLink("Facebook",rx,reviewY+5,{url:facebook});
+      doc.line(rx,reviewY+6,rx+20,reviewY+6);
+      rx+=28;
+    }
+    doc.setTextColor(17,24,39);doc.textWithLink("Google",rx,reviewY+5,{url:google});
+    doc.line(rx,reviewY+6,rx+16,reviewY+6);
+  }
   doc.setFontSize(8);doc.setTextColor(90,90,90);doc.text("Thank you for choosing Evans Property Clearance.",16,286);
   const blob=doc.output("blob");
   const file=new File([blob],`${number}.pdf`,{type:"application/pdf"});
@@ -682,7 +700,8 @@ function openNavigation(q){
 }
 function customerFeedbackMessage(q){
   const b=getBusiness(),name=q.name||'there',page=b.facebook||'';
-  return `${b.name}\n\nHi ${name}, thank you for choosing us for your property clearance. We hope you were happy with the service.\n\nIf you were happy with the service, we'd really appreciate it if you could leave us a review on our Facebook page${page?' here: '+page:'.'}\n\nThank you again for choosing ${b.name}!\n${b.phone}`;
+  const google='https://g.page/r/CRI_c2kgf5hBECE/review';
+  return `${b.name}\n\nHi ${name}, thank you for choosing us for your property clearance. We hope you were happy with the service.\n\nIf you were happy with the service, we'd really appreciate it if you could leave us a review.\n\n⭐ Facebook${page?'\n'+page:''}\n⭐ Google\n${google}\n\nThank you again for choosing ${b.name}!\n${b.phone}`;
 }
 function sendFeedbackWhatsApp(q){
   const b=getBusiness();
