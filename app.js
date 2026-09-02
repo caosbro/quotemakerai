@@ -177,7 +177,8 @@ function bindCore(){
   document.querySelectorAll("[data-payment-method]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-payment-method]").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");updatePaymentSummary()});
   document.querySelectorAll("[data-payment-status]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-payment-status]").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");updatePaymentSummary()});
   ["customerName","customerPhone","customerAddress","jobNotes","customLabour","customPrice"].forEach(id=>$(id).addEventListener("input",recalc));
-  ["fullHouseToggle","houseBedrooms","houseReception","houseBathrooms","houseKitchen","houseHallways","houseFrontGarden","houseBackGarden","houseGarage","houseShed","houseLoft","houseHeavy","houseExtraWaste","houseLoads"].forEach(id=>{const e=$(id);if(e){e.addEventListener("input",updateFullHouse);e.addEventListener("change",updateFullHouse)}});
+  ["fullHouseToggle","houseBedrooms","houseReception","houseBathrooms","houseKitchen","houseHallways","houseFrontGarden","houseBackGarden","houseGarage","houseShed","houseLoft","houseHeavy","houseExtraWaste","houseLoads"].forEach(id=>{const e=$(id);if(e){e.addEventListener("input",updateFullHouse);e.addEventListener("change",updateFullHouse);e.addEventListener("click",updateFullHouse)}});
+  updateFullHouse();
   $("calculateBtn").onclick=()=>{recalc();toast("Quote calculated")};
   $("clearBtn").onclick=clearQuote;
   $("saveBtn").onclick=saveQuote;
@@ -287,7 +288,7 @@ function fullHousePrice(){
 }
 function updateFullHouse(){
   const enabled=$('fullHouseToggle')?.checked;
-  $('fullHouseFields')?.classList.toggle('hidden',!enabled);
+  if($('fullHouseFields')){ $('fullHouseFields').hidden=!enabled; $('fullHouseFields').classList.toggle('hidden',!enabled); }
   if(!enabled){ if($('fullHouseTotal'))$('fullHouseTotal').textContent='£0.00'; recalc(); return; }
   const h=fullHousePrice();
   if($('fullHouseTotal'))$('fullHouseTotal').textContent=money(h.total);
