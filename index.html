@@ -7,6 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Evans Clearance">
+  <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon.jpg">
   <link rel="stylesheet" href="styles.css">
   <title>Evans Clearance — Evans Property Clearance</title>
@@ -163,7 +164,6 @@
         <button data-owner-tab="jobs">📋 Jobs</button>
         <button data-owner-tab="calendar">📅 Calendar</button>
         <button data-owner-tab="payments">💷 Payments</button>
-        <button data-owner-tab="leads">🚀 Leads</button>
         <button data-owner-tab="settings">⚙️ Settings</button>
       </div>
 
@@ -189,28 +189,6 @@
       <div id="ownerTabJobs" class="owner-tab hidden"><div class="card"><h2>📋 Jobs</h2><p class="muted">Turn accepted quotes into booked jobs, then mark them completed.</p><div class="job-filters"><button class="selected" data-job-filter="active">ACTIVE</button><button data-job-filter="archived">ARCHIVED</button><button data-job-filter="all">ALL</button></div><div id="jobsList"></div></div></div>
       <div id="ownerTabCalendar" class="owner-tab hidden"><div class="card"><div class="calendar-head"><button id="calendarPrev">‹</button><h2 id="calendarTitle">Calendar</h2><button id="calendarNext">›</button></div><div id="calendarGrid" class="calendar-grid"></div><div id="calendarJobs" class="calendar-jobs"></div></div></div>
       <div id="ownerTabPayments" class="owner-tab hidden"><div class="card"><h2>💷 Payments</h2><div id="paymentsList"></div></div></div>
-
-      <div id="ownerTabLeads" class="owner-tab hidden">
-        <div class="card lead-finder-card">
-          <h2>🚀 Find New Customers</h2>
-          <p class="muted">Find publicly listed local businesses that could send clearance work your way. This uses free OpenStreetMap data — no paid lead database.</p>
-          <label>Area / postcode<input id="leadArea" placeholder="e.g. Walsall, Birmingham or WS10"></label>
-          <label>Search radius<select id="leadRadius"><option value="5000">5 miles</option><option value="10000" selected>10 miles</option><option value="20000">20 miles</option><option value="30000">30 miles</option></select></label>
-          <div class="lead-category-grid">
-            <label><input type="checkbox" value="estate_agent" checked> Estate agents</label>
-            <label><input type="checkbox" value="solicitor" checked> Probate / solicitors</label>
-            <label><input type="checkbox" value="funeral_director" checked> Funeral directors</label>
-            <label><input type="checkbox" value="property_manager" checked> Property managers</label>
-            <label><input type="checkbox" value="letting_agent"> Letting agents</label>
-            <label><input type="checkbox" value="removal_company"> Removal companies</label>
-            <label><input type="checkbox" value="auction_house"> Auction houses</label>
-          </div>
-          <button class="primary" id="findLeadsBtn" type="button">🔎 FIND NEW LEADS</button>
-          <p id="leadSearchStatus" class="muted"></p>
-        </div>
-        <div class="card"><div class="lead-results-head"><h2>📋 Leads</h2><span id="leadCount" class="muted">0</span></div><div id="leadResults"></div></div>
-        <div class="card"><h2>💾 Saved leads</h2><p class="muted">Saved locally on this device. Contacted leads stay out of your new-lead results.</p><div id="savedLeadResults"></div></div>
-      </div>
 
       <div id="ownerTabSettings" class="owner-tab hidden">
         <div class="card owner-settings"><h2>⚙️ Owner Settings</h2><p class="muted">Business controls are kept here and are only available after unlocking the Owners menu.</p>

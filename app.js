@@ -220,7 +220,7 @@ function createQuoteLink(){
   const d=getData(),b=getBusiness(),p=getPayment();
   const payload={v:2,name:$("customerName").value.trim(),phone:$("customerPhone").value.trim(),address:$("customerAddress").value.trim(),notes:$("jobNotes").value.trim(),quote:d.quote,number:$("quoteNumber").value||nextQuote(),type:getDocumentType(),business:{name:b.name,phone:b.phone,email:b.email,facebook:b.facebook||"",googleReview:b.googleReview||DEFAULT_BUSINESS.googleReview}};
   if(!payload.name&&!payload.address){toast("Add customer details first");return}
-  const base=(location.protocol==='http:'||location.protocol==='https:')?location.origin:window.location.href.split('#')[0].replace(/[^/]*$/,''); const url=base.replace(/\/$/,'')+'/customer.html#quote='+encodeQuoteLink(payload);
+  const url=location.origin+'/customer.html#quote='+encodeQuoteLink(payload);
   const pendingJob=getSelectedQuote();
   pendingJob.status='Pending Acceptance';
   pendingJob.quoteLink=url;
@@ -838,50 +838,3 @@ function sendWhatsApp(){sendQuoteWhatsApp(getSelectedQuote())}
 
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 init();
-
-/* Free local lead finder — owner only. Uses the Vercel /api/leads proxy backed by OpenStreetMap. */
-const LEAD_STORE_KEY='epc_leads';
-function getSavedLeads(){try{return JSON.parse(localStorage.getItem(LEAD_STORE_KEY)||'[]')}catch{return []}}
-function saveSavedLeads(list){localStorage.setItem(LEAD_STORE_KEY,JSON.stringify(list));if(typeof idbSet==='function')idbSet(LEAD_STORE_KEY,list)}
-function leadKey(l){return String(l.id||((l.name||'')+'|'+(l.address||'')+'|'+(l.phone||'')).toLowerCase())}
-function selectedLeadCategories(){return [...document.querySelectorAll('#ownerTabLeads input[type="checkbox"]:checked')].map(x=>x.value)}
-function leadActionHtml(l,i,saved=false){
-  const tel=String(l.phone||'').replace(/[^\d+]/g,'');
-  const web=l.website&&/^https?:\/\//i.test(l.website)?l.website:'';
-  const maps=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((l.name||'')+' '+(l.address||''))}`;
-  const actions=[];
-  if(tel)actions.push(`<button data-lead-action="call" data-index="${i}">📞 CALL</button>`);
-  if(web)actions.push(`<button data-lead-action="website" data-index="${i}">🌐 WEBSITE</button>`);
-  actions.push(`<button data-lead-action="maps" data-index="${i}">📍 MAP</button>`);
-  if(!saved)actions.push(`<button class="primary" data-lead-action="save" data-index="${i}">💾 SAVE LEAD</button>`);
-  else actions.push(`<button data-lead-action="contacted" data-index="${i}">${l.contacted?'✓ CONTACTED':'✓ MARK CONTACTED'}</button>`);
-  return actions.join('');
-}
-function renderLeadRecords(leads,containerId,saved=false){
-  const el=$(containerId);if(!el)return;
-  if(!leads.length){el.innerHTML='<div class="lead-empty">No leads here yet.</div>';return}
-  el.innerHTML=leads.map((l,i)=>`<div class="lead-record ${saved?'lead-saved':''}"><div class="record-top"><div><h3>${escapeHtml(l.name||'Unnamed business')}</h3><div class="lead-meta">${escapeHtml(l.category||'Local business')} · ${escapeHtml(l.address||'Address not listed')}</div>${l.phone?`<div class="lead-meta">📞 ${escapeHtml(l.phone)}</div>`:''}${l.email?`<div class="lead-meta">✉️ ${escapeHtml(l.email)}</div>`:''}</div><span class="lead-score">${Math.min(99,Number(l.score)||50)}% RELEVANCE</span></div><div class="lead-actions">${leadActionHtml(l,i,saved)}</div></div>`).join('');
-  el.querySelectorAll('[data-lead-action]').forEach(btn=>btn.onclick=()=>handleLeadAction(btn.dataset.leadAction,Number(btn.dataset.index),saved));
-}
-function renderSavedLeads(){const saved=getSavedLeads();renderLeadRecords(saved,'savedLeadResults',true)}
-function renderLeads(leads){$('leadCount').textContent=`${leads.length} found`;renderLeadRecords(leads,'leadResults',false)}
-function handleLeadAction(action,index,savedMode){
-  const list=savedMode?getSavedLeads():(window.__epcCurrentLeads||[]),l=list[index];if(!l)return;
-  if(action==='save'){const saved=getSavedLeads();if(!saved.some(x=>leadKey(x)===leadKey(l))){saved.push({...l,savedAt:new Date().toISOString()});saveSavedLeads(saved);toast('Lead saved ✓');renderSavedLeads();}else toast('Lead already saved');return}
-  if(action==='call'&&l.phone){window.location.href='tel:'+String(l.phone).replace(/\s+/g,'');return}
-  if(action==='website'&&l.website){window.open(l.website,'_blank');return}
-  if(action==='maps'){window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((l.name||'')+' '+(l.address||''))}`,'_blank');return}
-  if(action==='contacted'){const saved=getSavedLeads();saved[index]={...saved[index],contacted:true,contactedAt:new Date().toISOString()};saveSavedLeads(saved);renderSavedLeads();toast('Marked contacted ✓');}
-}
-async function findLeads(){
-  const area=$('leadArea').value.trim(),radius=$('leadRadius').value,categories=selectedLeadCategories();
-  if(!area){toast('Enter an area or postcode');return}if(!categories.length){toast('Choose at least one lead type');return}
-  const status=$('leadSearchStatus');status.textContent='Searching free local business data…';$('findLeadsBtn').disabled=true;
-  try{
-    const qs='area='+encodeURIComponent(area)+'&radius='+encodeURIComponent(radius)+'&categories='+encodeURIComponent(categories.join(','));const r=await fetch('/api/leads?'+qs);const data=await r.json();if(!r.ok)throw new Error(data.error||'Lead search failed');
-    const savedKeys=new Set(getSavedLeads().map(leadKey));window.__epcCurrentLeads=(data.leads||[]).filter(l=>!savedKeys.has(leadKey(l)));renderLeads(window.__epcCurrentLeads);status.textContent=`Found ${data.count||0} publicly listed businesses. ${data.count-window.__epcCurrentLeads.length} already saved or duplicate.`;toast(`${window.__epcCurrentLeads.length} new leads found ✓`);
-  }catch(e){status.textContent=e?.message||'Lead search failed';toast('Could not find leads');renderLeads([])}finally{$('findLeadsBtn').disabled=false}
-}
-const oldOwnerTab=ownerTab;
-ownerTab=function(tab){oldOwnerTab(tab);if(tab==='leads'){renderSavedLeads();if($('leadArea')&&!$('leadArea').value){$('leadArea').value='Walsall'}}};
-document.addEventListener('DOMContentLoaded',()=>{if($('findLeadsBtn'))$('findLeadsBtn').onclick=findLeads;renderSavedLeads()});
