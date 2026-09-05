@@ -220,7 +220,7 @@ function createQuoteLink(){
   const d=getData(),b=getBusiness(),p=getPayment();
   const payload={v:2,name:$("customerName").value.trim(),phone:$("customerPhone").value.trim(),address:$("customerAddress").value.trim(),notes:$("jobNotes").value.trim(),quote:d.quote,number:$("quoteNumber").value||nextQuote(),type:getDocumentType(),business:{name:b.name,phone:b.phone,email:b.email,facebook:b.facebook||"",googleReview:b.googleReview||DEFAULT_BUSINESS.googleReview}};
   if(!payload.name&&!payload.address){toast("Add customer details first");return}
-  const url=location.origin+'/customer.html#quote='+encodeQuoteLink(payload);
+  const base=(location.protocol==='http:'||location.protocol==='https:')?location.origin:window.location.href.split('#')[0].replace(/[^/]*$/,''); const url=base.replace(/\/$/,'')+'/customer.html#quote='+encodeQuoteLink(payload);
   const pendingJob=getSelectedQuote();
   pendingJob.status='Pending Acceptance';
   pendingJob.quoteLink=url;
@@ -878,7 +878,7 @@ async function findLeads(){
   if(!area){toast('Enter an area or postcode');return}if(!categories.length){toast('Choose at least one lead type');return}
   const status=$('leadSearchStatus');status.textContent='Searching free local business data…';$('findLeadsBtn').disabled=true;
   try{
-    const qs=new URLSearchParams({area,radius,categories:categories.join(',')});const r=await fetch('/api/leads?'+qs.toString());const data=await r.json();if(!r.ok)throw new Error(data.error||'Lead search failed');
+    const qs='area='+encodeURIComponent(area)+'&radius='+encodeURIComponent(radius)+'&categories='+encodeURIComponent(categories.join(','));const r=await fetch('/api/leads?'+qs);const data=await r.json();if(!r.ok)throw new Error(data.error||'Lead search failed');
     const savedKeys=new Set(getSavedLeads().map(leadKey));window.__epcCurrentLeads=(data.leads||[]).filter(l=>!savedKeys.has(leadKey(l)));renderLeads(window.__epcCurrentLeads);status.textContent=`Found ${data.count||0} publicly listed businesses. ${data.count-window.__epcCurrentLeads.length} already saved or duplicate.`;toast(`${window.__epcCurrentLeads.length} new leads found ✓`);
   }catch(e){status.textContent=e?.message||'Lead search failed';toast('Could not find leads');renderLeads([])}finally{$('findLeadsBtn').disabled=false}
 }
