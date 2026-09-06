@@ -838,3 +838,38 @@ function sendWhatsApp(){sendQuoteWhatsApp(getSelectedQuote())}
 
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 init();
+
+/* Free lead finder — isolated from quoting/calculation logic. It opens public search pages and stores leads locally. */
+let leads=loadLeads();
+let leadsFilter='all';
+function loadLeads(){try{const x=JSON.parse(localStorage.getItem('epc_leads')||'[]');return Array.isArray(x)?x:[]}catch{return[]}}
+function saveLeads(){localStorage.setItem('epc_leads',JSON.stringify(leads));idbSet('epc_leads',leads)}
+function escapeLeadText(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function leadSearchUrl(type,location){return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(`${type} ${location}`)}
+function findLeads(){
+  const type=$('leadType')?.value||'probate solicitors',location=$('leadLocation')?.value.trim();
+  if(!location){toast('Enter a town or postcode first');return}
+  const url=leadSearchUrl(type,location);
+  window.open(url,'_blank');
+  $('leadSearchStatus').textContent=`Google Maps search opened for ${type} in ${location}. Save useful businesses below after checking their details.`;
+  toast('Lead search opened ✓');
+}
+function renderLeads(){
+  const el=$('leadsList');if(!el)return;
+  const shown=leads.filter(l=>leadsFilter==='all'||l.status===leadsFilter);
+  if(!shown.length){el.innerHTML='<p class="muted lead-empty">No saved leads yet. Use Find Leads, then add promising businesses manually.</p>';return}
+  el.innerHTML=shown.map((l)=>{const i=leads.indexOf(l);return `<div class="lead-card"><h3>${escapeLeadText(l.name)}</h3><div class="lead-meta"><span>${escapeLeadText(l.area||'')}</span><span>${escapeLeadText(l.type||'')}</span></div>${l.phone?`<p>📞 <a href="tel:${escapeLeadText(l.phone)}">${escapeLeadText(l.phone)}</a></p>`:''}${l.website?`<p>🌐 <a href="${escapeLeadText(l.website)}" target="_blank" rel="noopener">${escapeLeadText(l.website)}</a></p>`:''}${l.notes?`<p class="muted">${escapeLeadText(l.notes)}</p>`:''}<div class="lead-status-row"><select data-lead-status="${i}"><option value="new" ${l.status==='new'?'selected':''}>New</option><option value="contacted" ${l.status==='contacted'?'selected':''}>Contacted</option><option value="converted" ${l.status==='converted'?'selected':''}>Converted</option></select><button type="button" data-lead-delete="${i}">DELETE</button></div></div>`}).join('');
+}
+function saveManualLead(){
+  const name=$('manualLeadName')?.value.trim();if(!name){toast('Enter the business or contact name');return}
+  leads.unshift({id:crypto.randomUUID?.()||String(Date.now()),name,phone:$('manualLeadPhone').value.trim(),website:$('manualLeadWebsite').value.trim(),area:$('manualLeadArea').value.trim(),notes:$('manualLeadNotes').value.trim(),type:$('leadType').value,status:'new',createdAt:todayISO()});saveLeads();['manualLeadName','manualLeadPhone','manualLeadWebsite','manualLeadArea','manualLeadNotes'].forEach(id=>$(id).value='');renderLeads();toast('Lead saved ✓')
+}
+function bindLeads(){
+  $('findLeadsBtn')?.addEventListener('click',findLeads);$('googleLeadSearchBtn')?.addEventListener('click',findLeads);$('saveManualLeadBtn')?.addEventListener('click',saveManualLead);
+  document.querySelectorAll('[data-lead-filter]').forEach(b=>b.onclick=()=>{leadsFilter=b.dataset.leadFilter;document.querySelectorAll('[data-lead-filter]').forEach(x=>x.classList.toggle('selected',x===b));renderLeads()});
+  $('leadsList')?.addEventListener('change',e=>{const s=e.target.closest('[data-lead-status]');if(!s)return;const i=Number(s.dataset.leadStatus);if(leads[i]){leads[i].status=s.value;saveLeads();renderLeads();}});
+  $('leadsList')?.addEventListener('click',e=>{const b=e.target.closest('[data-lead-delete]');if(!b)return;const i=Number(b.dataset.leadDelete);if(leads[i]&&confirm(`Delete ${leads[i].name}?`)){leads.splice(i,1);saveLeads();renderLeads();toast('Lead deleted')}});
+  renderLeads();
+}
+const _bindEnhanced=bindEnhanced;
+bindEnhanced=function(){_bindEnhanced();bindLeads()};
