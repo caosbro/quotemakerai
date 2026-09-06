@@ -194,13 +194,14 @@
       <div id="ownerTabLeads" class="owner-tab hidden">
         <div class="card">
           <h2>🎯 Lead Finder</h2>
-          <p class="muted">Find local businesses that may refer property-clearance work. This uses free public search pages — no paid leads API or API key is required.</p>
+          <p class="muted">Find local businesses that may refer property-clearance work. Results are pulled from free OpenStreetMap public data — no paid leads API or API key is required.</p>
           <div class="lead-form-grid">
             <label>Lead type<select id="leadType"><option value="probate solicitors">Probate solicitors</option><option value="estate agents">Estate agents</option><option value="funeral directors">Funeral directors</option><option value="letting agents">Letting agents</option><option value="care homes">Care homes</option><option value="property management companies">Property management companies</option><option value="house clearance referrals">House clearance referrals</option></select></label>
             <label>Town / postcode<input id="leadLocation" placeholder="e.g. Walsall or WS1"></label>
           </div>
-          <div class="lead-actions"><button class="primary" id="findLeadsBtn" type="button">🔎 FIND LEADS</button><button id="googleLeadSearchBtn" type="button">🗺️ OPEN GOOGLE MAPS SEARCH</button></div>
+          <div class="lead-actions"><button class="primary" id="findLeadsBtn" type="button">🔎 FIND LEADS</button></div>
           <p id="leadSearchStatus" class="status">Enter an area and choose a lead type.</p>
+          <div id="leadResults" class="lead-results"></div>
         </div>
         <div class="card">
           <h2>💾 Saved leads</h2>

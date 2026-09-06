@@ -839,33 +839,87 @@ function sendWhatsApp(){sendQuoteWhatsApp(getSelectedQuote())}
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 init();
 
-/* Free lead finder — isolated from quoting/calculation logic. It opens public search pages and stores leads locally. */
+/* Free lead finder — uses OpenStreetMap's public data and stores chosen leads locally. */
 let leads=loadLeads();
 let leadsFilter='all';
+let foundLeads=[];
 function loadLeads(){try{const x=JSON.parse(localStorage.getItem('epc_leads')||'[]');return Array.isArray(x)?x:[]}catch{return[]}}
 function saveLeads(){localStorage.setItem('epc_leads',JSON.stringify(leads));idbSet('epc_leads',leads)}
 function escapeLeadText(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function leadSearchUrl(type,location){return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(`${type} ${location}`)}
-function findLeads(){
+function normaliseUrl(v){if(!v)return '';return /^https?:\/\//i.test(v)?v:'https://'+v}
+function leadTypeQuery(type){
+  const map={
+    'probate solicitors':'office="lawyer"',
+    'estate agents':'office="estate_agent"',
+    'funeral directors':'amenity="funeral_hall"',
+    'letting agents':'office="estate_agent"',
+    'care homes':'amenity="social_facility"',
+    'property management companies':'office="property_management"',
+    'house clearance referrals':'office="estate_agent"'
+  };
+  return map[type]||'office'
+}
+async function geocodeLeadArea(location){
+  const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=gb&q='+encodeURIComponent(location+', United Kingdom');
+  const r=await fetch(url,{headers:{'Accept':'application/json'}}); if(!r.ok)throw new Error('Geocoding failed');
+  const data=await r.json(); if(!data.length)throw new Error('Area not found');
+  return {lat:Number(data[0].lat),lon:Number(data[0].lon),display:data[0].display_name};
+}
+async function queryOpenStreetMap(type,location){
+  const geo=await geocodeLeadArea(location); const tag=leadTypeQuery(type); const radius=8000;
+  const q=`[out:json][timeout:25];(nwr[${tag}](around:${radius},${geo.lat},${geo.lon}););out center tags;`;
+  const endpoints=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+  let lastErr;
+  for(const endpoint of endpoints){try{const r=await fetch(endpoint,{method:'POST',body:q,headers:{'Content-Type':'text/plain;charset=UTF-8'}});if(!r.ok)throw new Error('Search service unavailable');const data=await r.json();return {geo,elements:Array.isArray(data.elements)?data.elements:[]}}catch(e){lastErr=e}}
+  throw lastErr||new Error('Lead search failed');
+}
+function osmLeadFromElement(el,type){
+  const t=el.tags||{}, c=el.center||{}, lat=el.lat??c.lat, lon=el.lon??c.lon;
+  const name=t.name||t['name:en']; if(!name)return null;
+  const street=t['addr:street']||'', number=t['addr:housenumber']||'', town=t['addr:city']||t['addr:town']||t['addr:place']||'', postcode=t['addr:postcode']||'';
+  const area=[street&&`${number} ${street}`.trim(),town,postcode].filter(Boolean).join(', ');
+  return {id:`osm-${el.type}-${el.id}`,name,phone:t.phone||t['contact:phone']||'',website:t.website||t['contact:website']||'',area,notes:'Found via OpenStreetMap public data.',type,lat,lon,osmUrl:`https://www.openstreetmap.org/${el.type}/${el.id}`};
+}
+function renderLeadResults(){
+  const el=$('leadResults');if(!el)return;
+  if(!foundLeads.length){el.innerHTML='<p class="muted lead-empty-result">No businesses with usable names were found in this area. Try a nearby town or postcode.</p>';return}
+  el.innerHTML=foundLeads.map((l,i)=>`<div class="lead-result-card"><h3>${escapeLeadText(l.name)}</h3><div class="lead-result-meta">${l.area?`<span>📍 ${escapeLeadText(l.area)}</span>`:''}${l.phone?`<span>📞 ${escapeLeadText(l.phone)}</span>`:''}</div>${l.website?`<p>🌐 <a href="${escapeLeadText(normaliseUrl(l.website))}" target="_blank" rel="noopener">${escapeLeadText(l.website)}</a></p>`:''}<div class="lead-result-actions"><button class="primary" type="button" data-save-found="${i}">💾 SAVE LEAD</button><button class="skip" type="button" data-skip-found="${i}">SKIP</button></div><div class="lead-source">Source: OpenStreetMap</div></div>`).join('');
+}
+async function findLeads(){
   const type=$('leadType')?.value||'probate solicitors',location=$('leadLocation')?.value.trim();
   if(!location){toast('Enter a town or postcode first');return}
-  const url=leadSearchUrl(type,location);
-  window.open(url,'_blank');
-  $('leadSearchStatus').textContent=`Google Maps search opened for ${type} in ${location}. Save useful businesses below after checking their details.`;
-  toast('Lead search opened ✓');
+  const status=$('leadSearchStatus'),results=$('leadResults'); foundLeads=[]; if(results)results.innerHTML='<p class="lead-loading">🔎 Searching public business data…</p>'; if(status)status.textContent=`Looking for ${type} around ${location}…`;
+  try{
+    const {geo,elements}=await queryOpenStreetMap(type,location);
+    const seen=new Set(); foundLeads=elements.map(e=>osmLeadFromElement(e,type)).filter(Boolean).filter(l=>{const k=l.name.toLowerCase()+'|'+l.area.toLowerCase();if(seen.has(k))return false;seen.add(k);return true}).slice(0,30);
+    if(status)status.textContent=`Found ${foundLeads.length} possible leads around ${location}. Save the ones you want to contact.`;
+    renderLeadResults();
+    if(foundLeads.length)toast(`${foundLeads.length} leads found ✓`);
+  }catch(e){
+    if(status)status.textContent='We could not fetch the public lead data right now. Try again in a moment.';
+    if(results)results.innerHTML='<p class="muted lead-empty-result">The free lead service is temporarily unavailable. Your saved leads are safe — try FIND LEADS again.</p>';
+    toast('Lead search unavailable');
+  }
 }
+function saveFoundLead(i){
+  const l=foundLeads[i];if(!l)return;
+  if(leads.some(x=>x.sourceId===l.id)){foundLeads.splice(i,1);renderLeadResults();toast('Lead already saved');return}
+  leads.unshift({id:crypto.randomUUID?.()||String(Date.now()),sourceId:l.id,name:l.name,phone:l.phone,website:normaliseUrl(l.website),area:l.area,notes:l.notes,type:l.type,status:'new',createdAt:todayISO()});saveLeads();foundLeads.splice(i,1);renderLeadResults();renderLeads();toast('Lead saved ✓')
+}
+function skipFoundLead(i){if(foundLeads[i]){foundLeads.splice(i,1);renderLeadResults();}}
 function renderLeads(){
   const el=$('leadsList');if(!el)return;
   const shown=leads.filter(l=>leadsFilter==='all'||l.status===leadsFilter);
-  if(!shown.length){el.innerHTML='<p class="muted lead-empty">No saved leads yet. Use Find Leads, then add promising businesses manually.</p>';return}
-  el.innerHTML=shown.map((l)=>{const i=leads.indexOf(l);return `<div class="lead-card"><h3>${escapeLeadText(l.name)}</h3><div class="lead-meta"><span>${escapeLeadText(l.area||'')}</span><span>${escapeLeadText(l.type||'')}</span></div>${l.phone?`<p>📞 <a href="tel:${escapeLeadText(l.phone)}">${escapeLeadText(l.phone)}</a></p>`:''}${l.website?`<p>🌐 <a href="${escapeLeadText(l.website)}" target="_blank" rel="noopener">${escapeLeadText(l.website)}</a></p>`:''}${l.notes?`<p class="muted">${escapeLeadText(l.notes)}</p>`:''}<div class="lead-status-row"><select data-lead-status="${i}"><option value="new" ${l.status==='new'?'selected':''}>New</option><option value="contacted" ${l.status==='contacted'?'selected':''}>Contacted</option><option value="converted" ${l.status==='converted'?'selected':''}>Converted</option></select><button type="button" data-lead-delete="${i}">DELETE</button></div></div>`}).join('');
+  if(!shown.length){el.innerHTML='<p class="muted lead-empty">No saved leads yet. Find leads above or add one manually.</p>';return}
+  el.innerHTML=shown.map((l)=>{const i=leads.indexOf(l);return `<div class="lead-card"><h3>${escapeLeadText(l.name)}</h3><div class="lead-meta"><span>${escapeLeadText(l.area||'')}</span><span>${escapeLeadText(l.type||'')}</span></div>${l.phone?`<p>📞 <a href="tel:${escapeLeadText(l.phone)}">${escapeLeadText(l.phone)}</a></p>`:''}${l.website?`<p>🌐 <a href="${escapeLeadText(normaliseUrl(l.website))}" target="_blank" rel="noopener">${escapeLeadText(l.website)}</a></p>`:''}${l.notes?`<p class="muted">${escapeLeadText(l.notes)}</p>`:''}<div class="lead-status-row"><select data-lead-status="${i}"><option value="new" ${l.status==='new'?'selected':''}>New</option><option value="contacted" ${l.status==='contacted'?'selected':''}>Contacted</option><option value="converted" ${l.status==='converted'?'selected':''}>Converted</option></select><button type="button" data-lead-delete="${i}">DELETE</button></div></div>`}).join('');
 }
 function saveManualLead(){
   const name=$('manualLeadName')?.value.trim();if(!name){toast('Enter the business or contact name');return}
-  leads.unshift({id:crypto.randomUUID?.()||String(Date.now()),name,phone:$('manualLeadPhone').value.trim(),website:$('manualLeadWebsite').value.trim(),area:$('manualLeadArea').value.trim(),notes:$('manualLeadNotes').value.trim(),type:$('leadType').value,status:'new',createdAt:todayISO()});saveLeads();['manualLeadName','manualLeadPhone','manualLeadWebsite','manualLeadArea','manualLeadNotes'].forEach(id=>$(id).value='');renderLeads();toast('Lead saved ✓')
+  leads.unshift({id:crypto.randomUUID?.()||String(Date.now()),name,phone:$('manualLeadPhone').value.trim(),website:normaliseUrl($('manualLeadWebsite').value.trim()),area:$('manualLeadArea').value.trim(),notes:$('manualLeadNotes').value.trim(),type:$('leadType').value,status:'new',createdAt:todayISO()});saveLeads();['manualLeadName','manualLeadPhone','manualLeadWebsite','manualLeadArea','manualLeadNotes'].forEach(id=>$(id).value='');renderLeads();toast('Lead saved ✓')
 }
 function bindLeads(){
-  $('findLeadsBtn')?.addEventListener('click',findLeads);$('googleLeadSearchBtn')?.addEventListener('click',findLeads);$('saveManualLeadBtn')?.addEventListener('click',saveManualLead);
+  $('findLeadsBtn')?.addEventListener('click',findLeads);$('saveManualLeadBtn')?.addEventListener('click',saveManualLead);
+  $('leadResults')?.addEventListener('click',e=>{const s=e.target.closest('[data-save-found]');if(s){saveFoundLead(Number(s.dataset.saveFound));return}const k=e.target.closest('[data-skip-found]');if(k)skipFoundLead(Number(k.dataset.skipFound));});
   document.querySelectorAll('[data-lead-filter]').forEach(b=>b.onclick=()=>{leadsFilter=b.dataset.leadFilter;document.querySelectorAll('[data-lead-filter]').forEach(x=>x.classList.toggle('selected',x===b));renderLeads()});
   $('leadsList')?.addEventListener('change',e=>{const s=e.target.closest('[data-lead-status]');if(!s)return;const i=Number(s.dataset.leadStatus);if(leads[i]){leads[i].status=s.value;saveLeads();renderLeads();}});
   $('leadsList')?.addEventListener('click',e=>{const b=e.target.closest('[data-lead-delete]');if(!b)return;const i=Number(b.dataset.leadDelete);if(leads[i]&&confirm(`Delete ${leads[i].name}?`)){leads.splice(i,1);saveLeads();renderLeads();toast('Lead deleted')}});
