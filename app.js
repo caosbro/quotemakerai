@@ -859,19 +859,12 @@ function leadTypeQuery(type){
   };
   return map[type]||'office'
 }
-async function geocodeLeadArea(location){
-  const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=gb&q='+encodeURIComponent(location+', United Kingdom');
-  const r=await fetch(url,{headers:{'Accept':'application/json'}}); if(!r.ok)throw new Error('Geocoding failed');
-  const data=await r.json(); if(!data.length)throw new Error('Area not found');
-  return {lat:Number(data[0].lat),lon:Number(data[0].lon),display:data[0].display_name};
-}
 async function queryOpenStreetMap(type,location){
-  const geo=await geocodeLeadArea(location); const tag=leadTypeQuery(type); const radius=8000;
-  const q=`[out:json][timeout:25];(nwr[${tag}](around:${radius},${geo.lat},${geo.lon}););out center tags;`;
-  const endpoints=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
-  let lastErr;
-  for(const endpoint of endpoints){try{const r=await fetch(endpoint,{method:'POST',body:q,headers:{'Content-Type':'text/plain;charset=UTF-8'}});if(!r.ok)throw new Error('Search service unavailable');const data=await r.json();return {geo,elements:Array.isArray(data.elements)?data.elements:[]}}catch(e){lastErr=e}}
-  throw lastErr||new Error('Lead search failed');
+  const url='/api/leads?type='+encodeURIComponent(type)+'&location='+encodeURIComponent(location);
+  const r=await fetch(url,{cache:'no-store',headers:{'Accept':'application/json'}});
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(data.error||'Lead search failed');
+  return data;
 }
 function osmLeadFromElement(el,type){
   const t=el.tags||{}, c=el.center||{}, lat=el.lat??c.lat, lon=el.lon??c.lon;
