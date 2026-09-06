@@ -21,5 +21,3 @@ The customer page is a separate public file at `/customer.html`. The quote-maker
 If Vercel asks customers to log in, that is Vercel Project/Deployment Protection, not the customer page code. Vercel Authentication/SSO or password protection must be disabled for the deployment that serves `customer.html`. Do not use a protected preview URL for customer links; use the public production domain.
 
 Once the production deployment is public, customers can open `/customer.html#quote=...` without a Vercel account or login.
-
-Lead Finder V3 change: lead lookups now run through the Vercel `/api/leads` server endpoint so iPhone browsers do not have to call OpenStreetMap/Overpass directly. Results are displayed inside the Leads screen with Save/Skip controls.

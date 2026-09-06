@@ -164,7 +164,6 @@
         <button data-owner-tab="jobs">📋 Jobs</button>
         <button data-owner-tab="calendar">📅 Calendar</button>
         <button data-owner-tab="payments">💷 Payments</button>
-        <button data-owner-tab="leads">🎯 Leads</button>
         <button data-owner-tab="settings">⚙️ Settings</button>
       </div>
 
@@ -190,33 +189,6 @@
       <div id="ownerTabJobs" class="owner-tab hidden"><div class="card"><h2>📋 Jobs</h2><p class="muted">Turn accepted quotes into booked jobs, then mark them completed.</p><div class="job-filters"><button class="selected" data-job-filter="active">ACTIVE</button><button data-job-filter="archived">ARCHIVED</button><button data-job-filter="all">ALL</button></div><div id="jobsList"></div></div></div>
       <div id="ownerTabCalendar" class="owner-tab hidden"><div class="card"><div class="calendar-head"><button id="calendarPrev">‹</button><h2 id="calendarTitle">Calendar</h2><button id="calendarNext">›</button></div><div id="calendarGrid" class="calendar-grid"></div><div id="calendarJobs" class="calendar-jobs"></div></div></div>
       <div id="ownerTabPayments" class="owner-tab hidden"><div class="card"><h2>💷 Payments</h2><div id="paymentsList"></div></div></div>
-
-      <div id="ownerTabLeads" class="owner-tab hidden">
-        <div class="card">
-          <h2>🎯 Lead Finder</h2>
-          <p class="muted">Find local businesses that may refer property-clearance work. Results are pulled from free OpenStreetMap public data — no paid leads API or API key is required.</p>
-          <div class="lead-form-grid">
-            <label>Lead type<select id="leadType"><option value="probate solicitors">Probate solicitors</option><option value="estate agents">Estate agents</option><option value="funeral directors">Funeral directors</option><option value="letting agents">Letting agents</option><option value="care homes">Care homes</option><option value="property management companies">Property management companies</option><option value="house clearance referrals">House clearance referrals</option></select></label>
-            <label>Town / postcode<input id="leadLocation" placeholder="e.g. Walsall or WS1"></label>
-          </div>
-          <div class="lead-actions"><button class="primary" id="findLeadsBtn" type="button">🔎 FIND LEADS</button></div>
-          <p id="leadSearchStatus" class="status">Enter an area and choose a lead type.</p>
-          <div id="leadResults" class="lead-results"></div>
-        </div>
-        <div class="card">
-          <h2>💾 Saved leads</h2>
-          <div class="lead-filters"><button class="selected" data-lead-filter="all">ALL</button><button data-lead-filter="new">NEW</button><button data-lead-filter="contacted">CONTACTED</button><button data-lead-filter="converted">CONVERTED</button></div>
-          <div id="leadsList"></div>
-        </div>
-        <div class="card">
-          <h2>➕ Add lead manually</h2>
-          <div class="lead-form-grid">
-            <label>Business / contact name<input id="manualLeadName"></label><label>Phone<input id="manualLeadPhone" type="tel"></label><label>Website<input id="manualLeadWebsite" type="url"></label><label>Area<input id="manualLeadArea"></label>
-            <label class="wide">Notes<textarea id="manualLeadNotes" rows="2"></textarea></label>
-          </div>
-          <button class="primary" id="saveManualLeadBtn" type="button">💾 SAVE LEAD</button>
-        </div>
-      </div>
 
       <div id="ownerTabSettings" class="owner-tab hidden">
         <div class="card owner-settings"><h2>⚙️ Owner Settings</h2><p class="muted">Business controls are kept here and are only available after unlocking the Owners menu.</p>
