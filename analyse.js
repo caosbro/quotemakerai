@@ -16,8 +16,8 @@ module.exports = async function handler(req, res) {
     const data = match[2];
     const instructions = `You are estimating waste for a UK house-clearance company. Inspect this single ordinary iPhone photo carefully. It may be wide, close-up, poorly framed, distant, mixed, or partly obscured. Identify visible waste and make a conservative estimate. Never refuse because the photo is imperfect. If little or no waste is visible, return zero quantities with an explanation. Never say that a valid rubbish photo is required.
 Return ONLY valid JSON with exactly these fields:
-{"summary":"short description","mixed_tonnes":0,"wood_tonnes":0,"soil_tonnes":0,"rubble_tonnes":0,"mattresses":0,"fridges":0,"confidence":"low|medium|high","notes":"brief assumptions"}
-Use tonnes to one decimal place for bulk categories and whole numbers for mattresses/fridges. If a category is not visible, return 0. Do not invent hidden rubbish. Do not calculate a price.`;
+{"summary":"short description","mixed_tonnes":0,"wood_tonnes":0,"soil_tonnes":0,"rubble_tonnes":0,"pops_tonnes":0,"mattresses":0,"fridges":0,"confidence":"low|medium|high","notes":"brief assumptions"}
+Use tonnes to one decimal place for bulk categories and whole numbers for mattresses/fridges. Treat visible potentially hazardous/POP waste conservatively and only estimate it when clearly identifiable. If a category is not visible, return 0. Do not invent hidden rubbish. Do not calculate a price.`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 45_000);
