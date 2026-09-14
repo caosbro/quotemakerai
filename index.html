@@ -23,7 +23,7 @@
 
   <main>
     <section id="ownerScreen" class="screen">
-      <div class="quick-actions">
+      <div class="quick-actions" id="quick-actions">
         <button class="primary" id="calculateBtn">CALCULATE</button>
         <button id="clearBtn">CLEAR QUOTE</button>
         <button id="saveBtn">SAVE QUOTE</button>
@@ -35,8 +35,9 @@
         <button id="aiPictureBtn">🤖 AI RUBBISH ESTIMATE</button>
       </div>
 
-      <section class="card">
-        <h2>Customer</h2>
+      <div id="quoteBuilderSections">
+      <section class="card" id="quoteSectionCustomer">
+        <h2 id="customerSectionHeading">Customer</h2>
         <div class="grid">
           <label>Name<input id="customerName" autocomplete="name"></label>
           <label>Telephone<input id="customerPhone" type="tel" autocomplete="tel"></label>
@@ -48,10 +49,10 @@
         </div>
       </section>
 
-      <section class="card full-house-card">
-        <h2>🏠 Complete Property Clearance</h2>
-        <p class="muted">For a property that needs completely emptying and left ready to put on the market. Pricing covers the house contents, with gardens, garage, loft and other work added only when required.</p>
-        <label class="toggle-row"><input id="fullHouseToggle" type="checkbox"> <span>Use Complete Property Clearance pricing</span></label>
+      <section class="card full-house-card" id="quoteSectionFullHouse">
+        <h2 id="fullHouseHeading">🏠 Complete Property Clearance</h2>
+        <p class="muted" id="fullHouseDescription">For a property that needs completely emptying and left ready to put on the market. Pricing covers the house contents, with gardens, garage, loft and other work added only when required.</p>
+        <label class="toggle-row"><input id="fullHouseToggle" type="checkbox"> <span id="fullHouseToggleText">Use Complete Property Clearance pricing</span></label>
         <div id="fullHouseFields" hidden>
           <div class="house-grid">
             <label>Bedrooms<select id="houseBedrooms"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select></label>
@@ -75,24 +76,24 @@
         </div>
       </section>
 
-      <section class="card">
-        <h2>Waste</h2>
+      <section class="card" id="quoteSectionWaste">
+        <h2 id="wasteHeading">Waste</h2>
         <div id="wasteRows"></div>
       </section>
 
-      <section class="card">
-        <h2>Common items</h2>
+      <section class="card" id="quoteSectionCommon">
+        <h2 id="commonHeading">Common items</h2>
         <div class="item-grid" id="commonItems"></div>
       </section>
 
-      <section class="card">
-        <h2>Extra charges</h2>
+      <section class="card" id="quoteSectionExtras">
+        <h2 id="extrasHeading">Extra charges</h2>
         <div class="extra-grid" id="extras"></div>
         <label>Custom labour charge (£)<input id="customLabour" type="number" min="0" step="1" inputmode="decimal" placeholder="0"></label>
       </section>
 
-      <section class="card">
-        <h2>Price</h2>
+      <section class="card" id="quoteSectionPrice">
+        <h2 id="priceHeading">Price</h2>
         <div class="price-options">
           <button class="selected" data-price="standard">STANDARD ×1.5</button>
           <button data-price="plus10">+10%</button>
@@ -104,20 +105,20 @@
         </label>
         <p id="priceOverrideStatus" class="muted hidden">Price override is active. This replaces the calculated customer price.</p>
         <div class="quote-preview">
-          <span>Customer quote</span>
+          <span id="quotePreviewLabel">Customer quote</span>
           <strong id="quoteTotal">£0.00</strong>
         </div>
       </section>
 
-      <section class="card">
-        <h2>🔗 Customer quote link</h2>
-        <p class="muted">Create a shareable link showing the customer price only. Your costs and profit stay hidden.</p>
+      <section class="card" id="quoteSectionLink">
+        <h2 id="linkHeading">🔗 Customer quote link</h2>
+        <p class="muted" id="linkDescription">Create a shareable link showing the customer price only. Your costs and profit stay hidden.</p>
         <button class="primary" id="createLinkBtn" type="button">🔗 CREATE QUOTE LINK</button>
         <div id="quoteLinkResult" class="hidden link-result"></div>
       </section>
 
-      <section class="card">
-        <h2>PDF document</h2>
+      <section class="card" id="quoteSectionDocument">
+        <h2 id="documentHeading">PDF document</h2>
         <label>Document type</label>
         <div class="document-type-grid">
           <button class="selected" data-document-type="Quote">📄 Quote</button>
@@ -126,29 +127,30 @@
         <p id="documentTypeStatus" class="status">Quote · customer price proposal</p>
       </section>
 
-      <section class="card">
-        <h2>Payment</h2>
-        <label>Payment method</label>
+      <section class="card" id="quoteSectionPayment">
+        <h2 id="paymentHeading">Payment</h2>
+        <label id="paymentMethodLabel">Payment method</label>
         <div class="payment-grid payment-method-grid">
           <button data-payment-method="Cash">💷 Cash</button>
           <button data-payment-method="Bank Transfer">🏦 Bank Transfer</button>
           <button data-payment-method="Card">💳 Card</button>
         </div>
-        <label class="payment-label">Payment status</label>
+        <label class="payment-label" id="paymentStatusLabel">Payment status</label>
         <div class="payment-grid payment-status-grid">
           <button data-payment-status="Paid">✅ Paid</button>
           <button data-payment-status="Outstanding">⏳ Outstanding</button>
         </div>
         <p id="paymentStatus" class="status">Outstanding</p>
       </section>
+      </div>
     </section>
 
     <section id="customerScreen" class="screen hidden">
-      <div class="customer-card">
+      <div class="customer-card" id="customerCardContent">
         <img src="logo.jpg" id="customerLogo" alt="Evans Property Clearance">
-        <h1>EVANS PROPERTY CLEARANCE</h1>
+        <h1 id="customerTitle">EVANS PROPERTY CLEARANCE</h1>
         <div class="customer-price" id="customerPriceDisplay">£0.00</div>
-        <p>Waste Removal Quote</p>
+        <p id="customerSubtitle">Waste Removal Quote</p>
         <button class="primary" id="acceptQuoteBtn">✅ ACCEPT QUOTE</button>
         <button class="secondary" id="declineQuoteBtn">❌ DECLINE / ASK A QUESTION</button>
         <button class="secondary" id="customerPdfBtn">MAKE PDF QUOTE</button>
@@ -163,8 +165,7 @@
         <button data-owner-tab="jobs">📋 Jobs</button>
         <button data-owner-tab="calendar">📅 Calendar</button>
         <button data-owner-tab="payments">💷 Payments</button>
-        <button data-owner-tab="leads">🚀 Leads</button>
-        <button data-owner-tab="settings">⚙️ Settings</button>
+        <button data-owner-tab="settings">⚙️ Owner Controls</button>
       </div>
 
       <div id="ownerTabOverview" class="owner-tab">
@@ -189,34 +190,17 @@
       <div id="ownerTabJobs" class="owner-tab hidden"><div class="card"><h2>📋 Jobs</h2><p class="muted">Turn accepted quotes into booked jobs, then mark them completed.</p><div class="job-filters"><button class="selected" data-job-filter="active">ACTIVE</button><button data-job-filter="archived">ARCHIVED</button><button data-job-filter="all">ALL</button></div><div id="jobsList"></div></div></div>
       <div id="ownerTabCalendar" class="owner-tab hidden"><div class="card"><div class="calendar-head"><button id="calendarPrev">‹</button><h2 id="calendarTitle">Calendar</h2><button id="calendarNext">›</button></div><div id="calendarGrid" class="calendar-grid"></div><div id="calendarJobs" class="calendar-jobs"></div></div></div>
       <div id="ownerTabPayments" class="owner-tab hidden"><div class="card"><h2>💷 Payments</h2><div id="paymentsList"></div></div></div>
-
-      <div id="ownerTabLeads" class="owner-tab hidden">
-        <div class="card lead-finder-card">
-          <h2>🚀 Find New Customers</h2>
-          <p class="muted">Find publicly listed local businesses that could send clearance work your way. This uses free OpenStreetMap data — no paid lead database.</p>
-          <label>Area / postcode<input id="leadArea" placeholder="e.g. Walsall, Birmingham or WS10"></label>
-          <label>Search radius<select id="leadRadius"><option value="5000">5 miles</option><option value="10000" selected>10 miles</option><option value="20000">20 miles</option><option value="30000">30 miles</option></select></label>
-          <div class="lead-category-grid">
-            <label><input type="checkbox" value="estate_agent" checked> Estate agents</label>
-            <label><input type="checkbox" value="solicitor" checked> Probate / solicitors</label>
-            <label><input type="checkbox" value="funeral_director" checked> Funeral directors</label>
-            <label><input type="checkbox" value="property_manager" checked> Property managers</label>
-            <label><input type="checkbox" value="letting_agent"> Letting agents</label>
-            <label><input type="checkbox" value="removal_company"> Removal companies</label>
-            <label><input type="checkbox" value="auction_house"> Auction houses</label>
-          </div>
-          <button class="primary" id="findLeadsBtn" type="button">🔎 FIND NEW LEADS</button>
-          <p id="leadSearchStatus" class="muted"></p>
-        </div>
-        <div class="card"><div class="lead-results-head"><h2>📋 Leads</h2><span id="leadCount" class="muted">0</span></div><div id="leadResults"></div></div>
-        <div class="card"><h2>💾 Saved leads</h2><p class="muted">Saved locally on this device. Contacted leads stay out of your new-lead results.</p><div id="savedLeadResults"></div></div>
-      </div>
-
       <div id="ownerTabSettings" class="owner-tab hidden">
         <div class="card owner-settings"><h2>⚙️ Owner Settings</h2><p class="muted">Business controls are kept here and are only available after unlocking the Owners menu.</p>
           <div class="settings-section"><h3>💷 Disposal costs & load labour</h3><p class="muted">Change these whenever your disposal/tip prices go up or down. New rates are used for new quotes and AI estimates. You can also set the labour added to each tracked load.</p><div id="disposalCostSettings"></div><button class="primary" id="saveDisposalCostsBtn" type="button">💾 SAVE DISPOSAL COSTS</button></div>
           <div class="settings-section"><h3>🔑 Change owner passcode</h3><p class="muted">Use 4 to 8 numbers. Your current passcode is never displayed.</p><label>New passcode<input id="newOwnerPin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" placeholder="New passcode"></label><label>Confirm new passcode<input id="confirmOwnerPin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" placeholder="Confirm passcode"></label><button id="changeOwnerPinBtn" type="button">🔐 CHANGE PASSCODE</button></div>
           <div class="settings-section"><h3>🏢 Business details</h3><p class="muted">These details can be changed without editing the app. Customers can use the saved Facebook or Google links to leave a review.</p><label>Business name<input id="businessNameSetting"></label><label>Phone<input id="businessPhoneSetting" type="tel"></label><label>Email<input id="businessEmailSetting" type="email"></label><label>Facebook page link<input id="facebookPageSetting" type="url" placeholder="https://www.facebook.com/your-page"></label><label>Google review link<input id="googleReviewSetting" type="url" placeholder="https://g.page/r/your-review-link"></label><button class="primary" id="saveBusinessSettingsBtn" type="button">💾 SAVE BUSINESS DETAILS</button></div>
+          <div class="settings-section"><div id="uiCustomization"></div></div>
+          <div class="settings-section"><h3>📄 PDF wording, visibility & layout</h3><p class="muted">Edit the wording of every configurable PDF label/paragraph, turn sections on or off, and drag blocks or edit X/Y positions. The layout has its own reset and the Master Reset restores everything.</p><div class="grid"><label>PDF subtitle<input id="pdfSubtitleSetting"></label><label>Header colour<input id="pdfHeaderColorSetting" type="color"></label><label>Text colour<input id="pdfTextColorSetting" type="color"></label><label>Muted text colour<input id="pdfMutedColorSetting" type="color"></label><label>Logo X (mm)<input id="pdfLogoXSetting" type="number" step="1"></label><label>Logo Y (mm)<input id="pdfLogoYSetting" type="number" step="1"></label><label>Logo width (mm)<input id="pdfLogoWidthSetting" type="number" step="1"></label><label>Logo height (mm)<input id="pdfLogoHeightSetting" type="number" step="1"></label><label>Quote heading<input id="pdfQuoteHeadingSetting"></label><label>Invoice heading<input id="pdfInvoiceHeadingSetting"></label><label>Customer heading<input id="pdfCustomerHeadingSetting"></label><label>Quote items heading<input id="pdfQuoteItemsHeadingSetting"></label><label>Invoice items heading<input id="pdfInvoiceItemsHeadingSetting"></label><label>Quote total label<input id="pdfQuoteTotalLabelSetting"></label><label>Invoice total label<input id="pdfInvoiceTotalLabelSetting"></label><label>Quote payment heading<input id="pdfPaymentQuoteHeadingSetting"></label><label>Invoice payment heading<input id="pdfPaymentInvoiceHeadingSetting"></label><label>Bank heading<input id="pdfBankHeadingSetting"></label><label>Bank account name<input id="pdfBankNameSetting"></label><label>Sort code<input id="pdfSortCodeSetting"></label><label>Account number<input id="pdfAccountNumberSetting"></label><label>Notes heading<input id="pdfNotesHeadingSetting"></label><label>Terms heading<input id="pdfTermsHeadingSetting"></label><label>Paid text<input id="pdfPaidTextSetting"></label><label>Outstanding text<input id="pdfOutstandingTextSetting"></label><label>Review heading<input id="pdfReviewHeadingSetting"></label><label>Review subheading<input id="pdfReviewSubheadingSetting"></label><label>Thank-you footer<input id="pdfThankYouSetting"></label></div><label>Quote terms (one line per term)<textarea id="pdfQuoteTermsSetting" rows="5"></textarea></label><label>Invoice terms (one line per term)<textarea id="pdfInvoiceTermsSetting" rows="5"></textarea></label><div class="check-grid"><label><input id="pdfShowPhoneSetting" type="checkbox"> Show phone</label><label><input id="pdfShowEmailSetting" type="checkbox"> Show email</label><label><input id="pdfShowCustomerPhoneSetting" type="checkbox"> Show customer phone</label><label><input id="pdfShowAddressSetting" type="checkbox"> Show address</label><label><input id="pdfShowNotesSetting" type="checkbox"> Show notes</label><label><input id="pdfShowPaymentSetting" type="checkbox"> Show payment</label><label><input id="pdfShowBankDetailsSetting" type="checkbox"> Show bank details</label><label><input id="pdfShowTermsSetting" type="checkbox"> Show terms</label><label><input id="pdfShowReviewSetting" type="checkbox"> Show review</label></div><button class="primary" id="saveAllOwnerSettingsBtn" type="button">💾 SAVE ALL PDF SETTINGS</button><button id="resetPdfSettingsBtn" type="button">↩️ RESET ALL PDF SETTINGS</button><div id="pdfLayoutEditor"></div></div>
+          <div class="settings-section"><h3>🛡️ Master reset</h3><p class="muted">This is the emergency fail-safe. It restores every configurable setting, PDF wording/visibility/positions and quote/customer screen layout to the original defaults without deleting saved quotes, jobs or customer records.</p><button id="resetAllSettingsBtn" type="button">↩️ RESET ALL SETTINGS TO DEFAULTS</button></div>
+          <div class="settings-section"><h3>💷 Complete property clearance pricing</h3><p class="muted">Edit the full-house base prices and add-ons used by the calculator.</p><div id="fullHousePricingSettings"></div><button class="primary" id="saveFullHousePricingBtn" type="button">💾 SAVE FULL-HOUSE PRICING</button></div>
+          <div class="settings-section"><h3>🧱 Common-item estimated weights</h3><p class="muted">Change the estimated weight added when a common item is selected.</p><div id="commonWeightSettings"></div><button class="primary" id="saveCommonWeightsBtn" type="button">💾 SAVE COMMON WEIGHTS</button></div>
+          <div class="settings-section"><h3>➕ Extra charge values</h3><div id="extraPriceSettings"></div><button class="primary" id="saveExtraPricesBtn" type="button">💾 SAVE EXTRA PRICES</button></div>
           <div class="settings-section"><h3>💾 Data backup</h3><p class="muted">Your quotes are stored persistently on this device. You can also make a manual backup file so your business data can be restored if you ever clear the app's website data.</p><button id="exportDataBtn" type="button">⬇️ EXPORT BACKUP</button><label>Restore backup<input id="importDataInput" type="file" accept="application/json"></label></div>
           <div class="settings-section"><h3>🗑️ Waste price history</h3><p class="muted">See when disposal rates were changed.</p><div id="disposalHistory"></div></div>
           <div class="settings-section"><h3>🤖 AI learning records</h3><p id="learningRecordCount" class="muted">No records yet.</p><button id="resetAiLearningBtn" type="button">RESET AI LEARNING RECORDS</button></div>

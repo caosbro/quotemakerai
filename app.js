@@ -25,6 +25,59 @@ const CONFIG={
 const DEFAULT_DISPOSAL_COSTS=Object.fromEntries(Object.entries(CONFIG.waste).map(([k,v])=>[k,v.price]));
 const DEFAULT_LOAD_LABOUR=0;
 const DEFAULT_BUSINESS={name:"Evans Property Clearance",phone:"07954130766",email:"evanspropertyclearance@gmail.com",facebook:"https://www.facebook.com/share/1KGfWEi6iV/?mibextid=wwXIfr",googleReview:"https://g.page/r/CRI_c2kgf5hBECE/review"};
+const DEFAULT_APP_SETTINGS={
+  multiplier:1.5,minCharge:0,loadLabour:0,
+  fullHouse:{bedroomBase:[0,700,1000,1400,1750,2100,2500,2900,3300],extraReception:100,extraBathroom:75,noKitchen:-100,front:[0,150,200,300],back:[0,250,350,500,650],garage:200,shed:150,loft:150,heavy:200,extraWaste:250,extraLoad:250},
+  ui:{quickOrder:["calculate","clear","save","whatsapp","pdf","saved","customer","weights","ai"],quickVisible:{calculate:true,clear:true,save:true,whatsapp:true,pdf:true,saved:true,customer:true,weights:true,ai:true},quoteOrder:["customer","fullHouse","waste","common","extras","price","link","document","payment"],customerOrder:["logo","title","subtitle","price","accept","decline","pdf","owner"],quoteVisible:{customer:true,fullHouse:true,waste:true,common:true,extras:true,price:true,link:true,document:true,payment:true},customerVisible:{logo:true,title:true,subtitle:true,price:true,accept:true,decline:true,pdf:true,owner:true},texts:{customerHeading:"Customer",fullHouseHeading:"🏠 Complete Property Clearance",fullHouseDescription:"For a property that needs completely emptying and left ready to put on the market. Pricing covers the house contents, with gardens, garage, loft and other work added only when required.",wasteHeading:"Waste",commonHeading:"Common items",extrasHeading:"Extra charges",priceHeading:"Price",linkHeading:"🔗 Customer quote link",documentHeading:"PDF document",paymentHeading:"Payment",fullHouseToggle:"Use Complete Property Clearance pricing",quotePreviewLabel:"Customer quote",linkDescription:"Create a shareable link showing the customer price only. Your costs and profit stay hidden.",createLink:"🔗 CREATE QUOTE LINK",paymentMethodLabel:"Payment method",paymentStatusLabel:"Payment status",customerTitle:"EVANS PROPERTY CLEARANCE",customerSubtitle:"Waste Removal Quote",acceptButton:"✅ ACCEPT QUOTE",declineButton:"❌ DECLINE / ASK A QUESTION",customerPdfButton:"MAKE PDF QUOTE",ownerButton:"OWNER VIEW"}},
+  pdf:{
+    subtitle:"Professional Waste Removal & Property Clearance",
+    quoteHeading:"QUOTATION",invoiceHeading:"INVOICE",
+    customerHeading:"Customer details",itemsQuoteHeading:"Quote items",itemsInvoiceHeading:"Invoice items",
+    totalQuoteLabel:"TOTAL",totalInvoiceLabel:"AMOUNT DUE",paymentQuoteHeading:"Payment",paymentInvoiceHeading:"Payment details",
+    bankHeading:"Bank transfer details",bankAccountName:"Kyle Evans",bankSortCode:"04-29-09",bankAccountNumber:"60851333",
+    notesHeading:"Job notes",termsHeading:"Terms & conditions",
+    quoteTerms:["This quotation is based on the information and/or photographs provided at the time of quoting.","The final price may change if the amount or type of waste differs substantially from the quotation.","Additional work or waste not included in this quotation may incur an additional charge.","Payment is due as agreed with Evans Property Clearance."],
+    invoiceTerms:["This invoice relates to the property clearance / waste removal services described above.","Any additional work or waste not included in the agreed work may incur an additional charge.","Please retain this invoice for your records.","Payment is due as agreed with Evans Property Clearance."],
+    paidText:"This invoice has been paid in full.",outstandingText:"Payment is outstanding. Please use the payment details below.",
+    reviewHeading:"Happy with our service? We'd really appreciate a review.",reviewSubheading:"Leave a review on:",thankYou:"Thank you for choosing Evans Property Clearance.",
+    showPhone:true,showEmail:true,showCustomerPhone:true,showAddress:true,showNotes:true,showPayment:true,showBankDetails:true,showTerms:true,showReview:true,
+    headerColor:"#111827",textColor:"#111827",mutedColor:"#5a5a5a",logoX:14,logoY:7,logoWidth:24,logoHeight:24,
+    layout:{header:{x:0,y:0},document:{x:16,y:51},customer:{x:16,y:77},items:{x:16,y:112},total:{x:120,y:150},payment:{x:16,y:166},notes:{x:16,y:215},terms:{x:16,y:245},review:{x:16,y:268},footer:{x:16,y:286}}
+  }
+};
+function cloneDefaultSettings(){return JSON.parse(JSON.stringify(DEFAULT_APP_SETTINGS))}
+function getAppSettings(){try{const saved=JSON.parse(localStorage.getItem("epc_app_settings")||"null");return mergeSettings(cloneDefaultSettings(),saved||{})}catch{return cloneDefaultSettings()}}
+function mergeSettings(base,saved){if(!saved||typeof saved!=="object")return base;Object.keys(saved).forEach(k=>{if(saved[k]&&typeof saved[k]==="object"&&!Array.isArray(saved[k])&&base[k]&&typeof base[k]==="object"&&!Array.isArray(base[k]))base[k]=mergeSettings(base[k],saved[k]);else base[k]=saved[k]});return base}
+function saveAppSettings(settings){localStorage.setItem("epc_app_settings",JSON.stringify(settings));idbSet("epc_app_settings",settings)}
+function resetAppSettings(){if(!confirm("Reset ALL custom Owner Menu settings, PDF wording/layout, quote-builder/customer-view layout, pricing controls and visibility options to the original defaults? Saved quotes and jobs will NOT be deleted."))return;localStorage.removeItem("epc_app_settings");localStorage.removeItem("epc_disposal_costs");localStorage.removeItem("epc_load_labour");Object.entries(DEFAULT_DISPOSAL_COSTS).forEach(([k,v])=>{if(CONFIG.waste[k])CONFIG.waste[k].price=v});loadDisposalCosts();renderDisposalCostSettings();renderAppSettings();renderAdvancedPricingSettings();buildWaste();buildCommon();buildExtras();applyOwnerCustomizations();recalc();toast("All Owner settings reset to defaults ✓")}
+function getPdfSettings(){return getAppSettings().pdf}
+const UI_SECTION_NAMES={customer:"Customer details",fullHouse:"Complete property clearance",waste:"Waste",common:"Common items",extras:"Extra charges",price:"Price",link:"Customer quote link",document:"PDF document",payment:"Payment"};
+const UI_CUSTOMER_NAMES={logo:"Logo",title:"Business title",subtitle:"Subtitle",price:"Price",accept:"Accept button",decline:"Decline/question button",pdf:"Customer PDF button",owner:"Owner view button"};
+function escAttr(v){return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+function renderUiCustomization(){const s=getAppSettings(),u=s.ui||cloneDefaultSettings().ui,box=$("uiCustomization");if(!box)return;const qv=u.quickVisible||{};const quickNames={calculate:"Calculate",clear:"Clear quote",save:"Save quote",whatsapp:"Send WhatsApp",pdf:"Make PDF",saved:"Saved quotes",customer:"Customer view",weights:"Weight guide",ai:"AI estimate"};const quickRows=(u.quickOrder||[]).map(k=>`<div class="ui-sort-row" draggable="true" data-ui-quick="${k}"><span>☷</span><strong>${quickNames[k]||k}</strong><label><input type="checkbox" data-ui-qkvis="${k}" ${qv[k]!==false?"checked":""}> Show</label></div>`).join("");const qr=u.quoteOrder.map(k=>`<div class="ui-sort-row" draggable="true" data-ui-quote="${k}"><span>☷</span><strong>${UI_SECTION_NAMES[k]||k}</strong><label><input type="checkbox" data-ui-qvis="${k}" ${u.quoteVisible[k]!==false?"checked":""}> Show</label></div>`).join("");const cr=u.customerOrder.map(k=>`<div class="ui-sort-row" draggable="true" data-ui-customer="${k}"><span>☷</span><strong>${UI_CUSTOMER_NAMES[k]||k}</strong><label><input type="checkbox" data-ui-cvis="${k}" ${u.customerVisible[k]!==false?"checked":""}> Show</label></div>`).join("");const t=u.texts;box.innerHTML=`<h3>🧩 Quote builder & customer view control</h3><p class="muted">Hide anything you do not want, or drag ☷ to change the order. Wording changes apply to the quote-making screen and customer view.</p><h4>Top quote action buttons</h4><div id="quickUiSort">${quickRows}</div><h4>Quote-making stage</h4><div id="quoteUiSort">${qr}</div><h4>Customer view</h4><div id="customerUiSort">${cr}</div><h4>Customer-facing wording</h4><div class="grid">${Object.entries(t).map(([k,v])=>`<label>${k.replace(/([A-Z])/g,' $1').replace(/^./,x=>x.toUpperCase())}<input data-ui-text="${k}" value="${escAttr(v)}"></label>`).join("")}</div><div class="settings-actions"><button class="primary" id="saveUiCustomizationBtn" type="button">💾 SAVE QUOTE / CUSTOMER SETTINGS</button><button id="resetUiCustomizationBtn" type="button">↩️ RESET QUOTE / CUSTOMER SETTINGS</button></div>`;const setup=id=>{const el=$(id);if(!el)return;let dragged=null;el.querySelectorAll('.ui-sort-row').forEach(r=>{r.addEventListener('dragstart',()=>{dragged=r;r.classList.add('dragging')});r.addEventListener('dragend',()=>{r.classList.remove('dragging');dragged=null});r.addEventListener('dragover',e=>{e.preventDefault();if(!dragged||dragged===r)return;const rect=r.getBoundingClientRect();el.insertBefore(dragged,e.clientY>rect.top+rect.height/2?r.nextSibling:r)})})};setup('quickUiSort');setup('quoteUiSort');setup('customerUiSort');$("saveUiCustomizationBtn").onclick=saveUiCustomization;$("resetUiCustomizationBtn").onclick=()=>{const s=getAppSettings();s.ui=cloneDefaultSettings().ui;saveAppSettings(s);renderAppSettings();applyOwnerCustomizations();toast('Quote/customer settings reset ✓')};}
+function saveUiCustomization(){const s=getAppSettings(),u=s.ui||cloneDefaultSettings().ui;u.quickOrder=[...$("quickUiSort").querySelectorAll("[data-ui-quick]")].map(x=>x.dataset.uiQuick);u.quickVisible={};document.querySelectorAll("[data-ui-qkvis]").forEach(x=>u.quickVisible[x.dataset.uiQkvis]=x.checked);u.quoteOrder=[...$("quoteUiSort").querySelectorAll('[data-ui-quote]')].map(x=>x.dataset.uiQuote);u.customerOrder=[...$("customerUiSort").querySelectorAll('[data-ui-customer]')].map(x=>x.dataset.uiCustomer);u.quoteVisible={};u.customerVisible={};document.querySelectorAll('[data-ui-qvis]').forEach(x=>u.quoteVisible[x.dataset.uiQvis]=x.checked);document.querySelectorAll('[data-ui-cvis]').forEach(x=>u.customerVisible[x.dataset.uiCvis]=x.checked);document.querySelectorAll('[data-ui-text]').forEach(x=>u.texts[x.dataset.uiText]=x.value);s.ui=u;saveAppSettings(s);applyOwnerCustomizations();toast('Quote/customer settings saved ✓')}
+function applyOwnerCustomizations(){const s=getAppSettings(),u=s.ui||cloneDefaultSettings().ui,t=u.texts||{};const qa=$("quick-actions")||$(".quick-actions"),qmap={calculate:"calculateBtn",clear:"clearBtn",save:"saveBtn",whatsapp:"whatsappBtn",pdf:"pdfBtn",saved:"savedBtn",customer:"customerBtn",weights:"weightsBtn",ai:"aiPictureBtn"};if(qa){const qnodes={};Object.entries(qmap).forEach(([k,id])=>{const n=$(id);if(n){qnodes[k]=n;n.classList.toggle("hidden",u.quickVisible?.[k]===false)}});(u.quickOrder||Object.keys(qmap)).forEach(k=>{if(qnodes[k])qa.appendChild(qnodes[k])})}const anchor=$("quoteBuilderSections");if(anchor){const map={customer:'quoteSectionCustomer',fullHouse:'quoteSectionFullHouse',waste:'quoteSectionWaste',common:'quoteSectionCommon',extras:'quoteSectionExtras',price:'quoteSectionPrice',link:'quoteSectionLink',document:'quoteSectionDocument',payment:'quoteSectionPayment'};const nodes={};Object.entries(map).forEach(([k,id])=>{const n=$(id);if(n){nodes[k]=n;n.classList.toggle('hidden',u.quoteVisible[k]===false)}});u.quoteOrder.forEach(k=>{if(nodes[k])anchor.appendChild(nodes[k])})}const ids={customerSectionHeading:'customerHeading',fullHouseHeading:'fullHouseHeading',fullHouseDescription:'fullHouseDescription',wasteHeading:'wasteHeading',commonHeading:'commonHeading',extrasHeading:'extrasHeading',priceHeading:'priceHeading',linkHeading:'linkHeading',documentHeading:'documentHeading',paymentHeading:'paymentHeading',fullHouseToggleText:'fullHouseToggle',quotePreviewLabel:'quotePreviewLabel',linkDescription:'linkDescription',createLinkBtn:'createLink',paymentMethodLabel:'paymentMethodLabel',paymentStatusLabel:'paymentStatusLabel',customerTitle:'customerTitle',customerSubtitle:'customerSubtitle',acceptQuoteBtn:'acceptButton',declineQuoteBtn:'declineButton',customerPdfBtn:'customerPdfButton',backOwnerBtn:'ownerButton'};Object.entries(ids).forEach(([id,key])=>{const e=$(id);if(e&&t[key]!==undefined)e.textContent=t[key]});const cs=$("customerCardContent");if(cs){const map={logo:'customerLogo',title:'customerTitle',subtitle:'customerSubtitle',price:'customerPriceDisplay',accept:'acceptQuoteBtn',decline:'declineQuoteBtn',pdf:'customerPdfBtn',owner:'backOwnerBtn'};const nodes={};Object.entries(map).forEach(([k,id])=>{const n=$(id);if(n){nodes[k]=n;n.classList.toggle('hidden',u.customerVisible[k]===false)}});u.customerOrder.forEach(k=>{if(nodes[k])cs.appendChild(nodes[k])})}updateDocumentType();}
+function renderAppSettings(){
+  const s=getAppSettings(), p=s.pdf;
+  const set=(id,v)=>{const e=$(id);if(e)e.value=v??""};
+  set("multiplierSetting",s.multiplier);set("minChargeSetting",s.minCharge);set("loadLabourSetting2",s.loadLabour);
+  set("pdfSubtitleSetting",p.subtitle);set("pdfHeaderColorSetting",p.headerColor);set("pdfTextColorSetting",p.textColor);set("pdfMutedColorSetting",p.mutedColor);set("pdfLogoXSetting",p.logoX);set("pdfLogoYSetting",p.logoY);set("pdfLogoWidthSetting",p.logoWidth);set("pdfLogoHeightSetting",p.logoHeight);set("pdfQuoteHeadingSetting",p.quoteHeading);set("pdfInvoiceHeadingSetting",p.invoiceHeading);set("pdfCustomerHeadingSetting",p.customerHeading);set("pdfQuoteItemsHeadingSetting",p.itemsQuoteHeading);set("pdfInvoiceItemsHeadingSetting",p.itemsInvoiceHeading);set("pdfQuoteTotalLabelSetting",p.totalQuoteLabel);set("pdfInvoiceTotalLabelSetting",p.totalInvoiceLabel);set("pdfPaymentQuoteHeadingSetting",p.paymentQuoteHeading);set("pdfPaymentInvoiceHeadingSetting",p.paymentInvoiceHeading);set("pdfBankHeadingSetting",p.bankHeading);set("pdfBankNameSetting",p.bankAccountName);set("pdfSortCodeSetting",p.bankSortCode);set("pdfAccountNumberSetting",p.bankAccountNumber);set("pdfNotesHeadingSetting",p.notesHeading);set("pdfTermsHeadingSetting",p.termsHeading);set("pdfPaidTextSetting",p.paidText);set("pdfOutstandingTextSetting",p.outstandingText);set("pdfReviewHeadingSetting",p.reviewHeading);set("pdfReviewSubheadingSetting",p.reviewSubheading);set("pdfThankYouSetting",p.thankYou);
+  const quoteTerms=$("pdfQuoteTermsSetting"), invoiceTerms=$("pdfInvoiceTermsSetting");if(quoteTerms)quoteTerms.value=p.quoteTerms.join("\n");if(invoiceTerms)invoiceTerms.value=p.invoiceTerms.join("\n");
+  ["showPhone","showEmail","showCustomerPhone","showAddress","showNotes","showPayment","showBankDetails","showTerms","showReview"].forEach(k=>{const e=$("pdf"+k.charAt(0).toUpperCase()+k.slice(1)+"Setting");if(e)e.checked=Boolean(p[k])});
+  renderPdfLayoutEditor(); renderUiCustomization();
+}
+function saveAllOwnerSettings(){
+  const s=getAppSettings(), p=s.pdf;
+  const n=(id,def)=>{const v=Number($(id)?.value);return Number.isFinite(v)&&v>=0?v:def};
+  s.multiplier=n("multiplierSetting",s.multiplier);s.minCharge=n("minChargeSetting",s.minCharge);s.loadLabour=n("loadLabourSetting2",s.loadLabour);
+  const text=(id,def)=>($(id)?.value??def).trim();
+  p.subtitle=text("pdfSubtitleSetting",p.subtitle);p.headerColor=text("pdfHeaderColorSetting",p.headerColor);p.textColor=text("pdfTextColorSetting",p.textColor);p.mutedColor=text("pdfMutedColorSetting",p.mutedColor);p.logoX=n("pdfLogoXSetting",p.logoX);p.logoY=n("pdfLogoYSetting",p.logoY);p.logoWidth=n("pdfLogoWidthSetting",p.logoWidth);p.logoHeight=n("pdfLogoHeightSetting",p.logoHeight);p.quoteHeading=text("pdfQuoteHeadingSetting",p.quoteHeading);p.invoiceHeading=text("pdfInvoiceHeadingSetting",p.invoiceHeading);p.customerHeading=text("pdfCustomerHeadingSetting",p.customerHeading);p.itemsQuoteHeading=text("pdfQuoteItemsHeadingSetting",p.itemsQuoteHeading);p.itemsInvoiceHeading=text("pdfInvoiceItemsHeadingSetting",p.itemsInvoiceHeading);p.totalQuoteLabel=text("pdfQuoteTotalLabelSetting",p.totalQuoteLabel);p.totalInvoiceLabel=text("pdfInvoiceTotalLabelSetting",p.totalInvoiceLabel);p.paymentQuoteHeading=text("pdfPaymentQuoteHeadingSetting",p.paymentQuoteHeading);p.paymentInvoiceHeading=text("pdfPaymentInvoiceHeadingSetting",p.paymentInvoiceHeading);p.bankHeading=text("pdfBankHeadingSetting",p.bankHeading);p.bankAccountName=text("pdfBankNameSetting",p.bankAccountName);p.bankSortCode=text("pdfSortCodeSetting",p.bankSortCode);p.bankAccountNumber=text("pdfAccountNumberSetting",p.bankAccountNumber);p.notesHeading=text("pdfNotesHeadingSetting",p.notesHeading);p.termsHeading=text("pdfTermsHeadingSetting",p.termsHeading);p.paidText=text("pdfPaidTextSetting",p.paidText);p.outstandingText=text("pdfOutstandingTextSetting",p.outstandingText);p.reviewHeading=text("pdfReviewHeadingSetting",p.reviewHeading);p.reviewSubheading=text("pdfReviewSubheadingSetting",p.reviewSubheading);p.thankYou=text("pdfThankYouSetting",p.thankYou);
+  p.quoteTerms=(($("pdfQuoteTermsSetting")?.value||"").split("\n").map(x=>x.trim()).filter(Boolean));p.invoiceTerms=(($("pdfInvoiceTermsSetting")?.value||"").split("\n").map(x=>x.trim()).filter(Boolean));
+  ["showPhone","showEmail","showCustomerPhone","showAddress","showNotes","showPayment","showBankDetails","showTerms","showReview"].forEach(k=>{const e=$("pdf"+k.charAt(0).toUpperCase()+k.slice(1)+"Setting");p[k]=e?e.checked:p[k]});
+  saveAppSettings(s);localStorage.setItem("epc_load_labour",String(s.loadLabour));idbSet("epc_load_labour",s.loadLabour);renderAppSettings();recalc();toast("Owner settings saved ✓")
+}
+function renderPdfLayoutEditor(){const p=getPdfSettings(),el=$("pdfLayoutEditor");if(!el)return;const names={header:"Header",document:"Document title",customer:"Customer details",items:"Items",total:"Total",payment:"Payment",notes:"Job notes",terms:"Terms",review:"Review request",footer:"Thank-you footer"};el.innerHTML=Object.entries(p.layout).map(([k,v])=>`<div class="pdf-layout-row"><strong>${names[k]||k}</strong><label>X (mm)<input data-pdf-x="${k}" type="number" min="0" max="190" step="1" value="${v.x}"></label><label>Y (mm)<input data-pdf-y="${k}" type="number" min="0" max="290" step="1" value="${v.y}"></label></div>`).join("")+`<div class="pdf-mini-preview" id="pdfMiniPreview"></div><button type="button" id="savePdfLayoutBtn" class="primary">💾 SAVE PDF POSITIONS</button><button type="button" id="resetPdfLayoutBtn">↩️ RESET PDF LAYOUT ONLY</button>`;const prev=$("pdfMiniPreview");Object.entries(p.layout).forEach(([k,v])=>{const b=document.createElement("div");b.className="pdf-mini-block";b.dataset.block=k;b.textContent=names[k]||k;b.style.left=(v.x/210*100)+"%";b.style.top=(v.y/297*100)+"%";prev.appendChild(b)});prev.querySelectorAll(".pdf-mini-block").forEach(b=>{let sx,sy,sl,st;b.addEventListener("pointerdown",e=>{e.preventDefault();b.setPointerCapture(e.pointerId);sx=e.clientX;sy=e.clientY;sl=b.offsetLeft;st=b.offsetTop;b._drag={sx,sy,sl,st}});b.addEventListener("pointermove",e=>{if(!b._drag)return;const r=prev.getBoundingClientRect(),x=Math.max(0,Math.min(r.width-b.offsetWidth,b._drag.sl+e.clientX-b._drag.sx)),y=Math.max(0,Math.min(r.height-b.offsetHeight,b._drag.st+e.clientY-b._drag.sy));b.style.left=(x/r.width*100)+"%";b.style.top=(y/r.height*100)+"%";const key=b.dataset.block;const xi=document.querySelector(`[data-pdf-x="${key}"]`),yi=document.querySelector(`[data-pdf-y="${key}"]`);if(xi)xi.value=Math.round(x/r.width*210);if(yi)yi.value=Math.round(y/r.height*297)});b.addEventListener("pointerup",()=>{b._drag=null})});$("savePdfLayoutBtn").onclick=()=>{const s=getAppSettings();Object.keys(s.pdf.layout).forEach(k=>{const x=Number(document.querySelector(`[data-pdf-x="${k}"]`)?.value),y=Number(document.querySelector(`[data-pdf-y="${k}"]`)?.value);if(Number.isFinite(x))s.pdf.layout[k].x=Math.max(0,Math.min(210,x));if(Number.isFinite(y))s.pdf.layout[k].y=Math.max(0,Math.min(297,y));});saveAppSettings(s);renderPdfLayoutEditor();toast("PDF layout saved ✓")};$("resetPdfLayoutBtn").onclick=()=>{const s=getAppSettings();s.pdf.layout=cloneDefaultSettings().pdf.layout;saveAppSettings(s);renderPdfLayoutEditor();toast("PDF layout reset ✓")}}
+
 function getBusiness(){try{return {...DEFAULT_BUSINESS,...JSON.parse(localStorage.getItem("epc_business")||"{}")}}catch{return {...DEFAULT_BUSINESS}}}
 function loadBusinessSettings(){const b=getBusiness();if($("businessNameSetting"))$("businessNameSetting").value=b.name;if($("businessPhoneSetting"))$("businessPhoneSetting").value=b.phone;if($("businessEmailSetting"))$("businessEmailSetting").value=b.email;if($("facebookPageSetting"))$("facebookPageSetting").value=b.facebook||"";if($("googleReviewSetting"))$("googleReviewSetting").value=b.googleReview||DEFAULT_BUSINESS.googleReview}
 function saveBusinessSettings(){const name=$("businessNameSetting").value.trim(),phone=$("businessPhoneSetting").value.trim(),email=$("businessEmailSetting").value.trim(),facebook=$("facebookPageSetting")?.value.trim()||"",googleReview=$("googleReviewSetting")?.value.trim()||"";if(!name||!phone||!email){toast("Complete all business details");return}if(facebook&&!/^https?:\/\/([a-z0-9-]+\.)?facebook\.com\//i.test(facebook)){toast("Enter a valid Facebook page link");return}if(!googleReview||!/^https?:\/\//i.test(googleReview)){toast("Enter a valid Google review link");return}const business={name,phone,email,facebook,googleReview};localStorage.setItem("epc_business",JSON.stringify(business));idbSet("epc_business",business);toast("Business details saved ✓");renderDashboard()}
@@ -47,9 +100,7 @@ function changeOwnerPin(){
   toast("Owner passcode changed ✓");
 }
 loadOwnerPin();
-function getLoadLabour(){
-  try{const n=Number(localStorage.getItem("epc_load_labour"));return Number.isFinite(n)&&n>=0?n:DEFAULT_LOAD_LABOUR}catch{return DEFAULT_LOAD_LABOUR}
-}
+function getLoadLabour(){try{const n=Number(getAppSettings().loadLabour);return Number.isFinite(n)&&n>=0?n:DEFAULT_LOAD_LABOUR}catch{return DEFAULT_LOAD_LABOUR}}
 function loadDisposalCosts(){
   try{
     const saved=JSON.parse(localStorage.getItem("epc_disposal_costs")||"null");
@@ -58,6 +109,17 @@ function loadDisposalCosts(){
     }
   }catch{}
 }
+function renderAdvancedPricingSettings(){
+ const s=getAppSettings(),fh=s.fullHouse,fp=$("fullHousePricingSettings"),cw=$("commonWeightSettings"),ex=$("extraPriceSettings");
+ if(fp){
+  const base=fh.bedroomBase.map((v,i)=>'<label>'+i+' bedroom base (£)<input data-fh-base="'+i+'" type="number" min="0" step="1" value="'+v+'"></label>').join('');
+  const adds=[['extraReception','Extra reception'],['extraBathroom','Extra bathroom'],['noKitchen','No kitchen adjustment'],['garage','Garage'],['shed','Shed'],['loft','Loft'],['heavy','Heavy'],['extraWaste','Extra waste'],['extraLoad','Extra load']].map(([k,n])=>'<label>'+n+' (£)<input data-fh="'+k+'" type="number" step="1" value="'+(fh[k]??0)+'"></label>').join('');
+  fp.innerHTML='<div class="grid">'+base+adds+'</div>';
+ }
+ if(cw){cw.innerHTML=Object.entries(CONFIG.common).map(([name,w])=>'<label>'+escAttr(name)+'<input data-common-weight="'+escAttr(name)+'" type="number" min="0" step="0.001" value="'+w+'"></label>').join('');}
+ if(ex){const vals=getAppSettings().extraPrices||{"Difficult access":20,"Upstairs flats":50,"Heavy lifting":50};ex.innerHTML=Object.entries(vals).map(([name,v])=>'<label>'+escAttr(name)+'<input data-extra-price="'+escAttr(name)+'" type="number" min="0" step="1" value="'+v+'"></label>').join('');}
+}
+function saveAdvancedPricing(){const s=getAppSettings(),fh=s.fullHouse;document.querySelectorAll('[data-fh-base]').forEach(e=>{const n=Number(e.value);if(Number.isFinite(n)&&n>=0)fh.bedroomBase[Number(e.dataset.fhBase)]=n});document.querySelectorAll('[data-fh]').forEach(e=>{const n=Number(e.value);if(Number.isFinite(n))fh[e.dataset.fh]=n});s.fullHouse=fh;s.commonWeights={};document.querySelectorAll('[data-common-weight]').forEach(e=>{const n=Number(e.value);if(Number.isFinite(n)&&n>=0){CONFIG.common[e.dataset.commonWeight]=n;s.commonWeights[e.dataset.commonWeight]=n}});Object.keys(CONFIG.common).forEach(name=>{CONFIG.weights[name]=name==='Black Bags'?`${CONFIG.common[name].toFixed(2)} t each`:`${CONFIG.common[name].toFixed(3)} t`});const extras={};document.querySelectorAll('[data-extra-price]').forEach(e=>{const n=Number(e.value);if(Number.isFinite(n)&&n>=0)extras[e.dataset.extraPrice]=n});s.extraPrices=extras;saveAppSettings(s);buildCommon();buildExtras();renderAdvancedPricingSettings();recalc();toast('Pricing controls saved ✓')}
 function renderDisposalCostSettings(){
   const el=$("disposalCostSettings");
   if(!el)return;
@@ -139,10 +201,7 @@ function buildWaste(){
 function buildCommon(){
   $("commonItems").innerHTML=Object.entries(CONFIG.common).map(([name,w])=>`<button data-common="${name}">${name}<span>est. ${CONFIG.weights[name]}</span></button>`).join("");
 }
-function buildExtras(){
-  const extras=[["Difficult access",20],["Upstairs flats",50],["Heavy lifting",50]];
-  $("extras").innerHTML=extras.map(([n,v])=>`<button data-extra="${n}" data-value="${v}">${n}<span>+${money(v)}</span></button>`).join("");
-}
+function buildExtras(){const vals=getAppSettings().extraPrices||{"Difficult access":20,"Upstairs flats":50,"Heavy lifting":50};$("extras").innerHTML=Object.entries(vals).map(([n,v])=>`<button data-extra="${n}" data-value="${v}">${n}<span>+${money(v)}</span></button>`).join("");}
 async function init(){
   // Hydrate from IndexedDB when it has data. This survives normal app/browser closes.
   try{
@@ -158,13 +217,13 @@ async function init(){
   recalc();
 }
 function exportBackup(){
-  const payload={version:1,exportedAt:todayISO(),quotes:state,business:getBusiness(),ownerPin:localStorage.getItem("epc_owner_pin")||null,disposalCosts:JSON.parse(localStorage.getItem("epc_disposal_costs")||"null"),loadLabour:getLoadLabour(),disposalHistory:JSON.parse(localStorage.getItem("epc_disposal_history")||"[]")};
+  const payload={version:2,exportedAt:todayISO(),quotes:state,business:getBusiness(),settings:getAppSettings(),ownerPin:localStorage.getItem("epc_owner_pin")||null,disposalCosts:JSON.parse(localStorage.getItem("epc_disposal_costs")||"null"),loadLabour:getLoadLabour(),disposalHistory:JSON.parse(localStorage.getItem("epc_disposal_history")||"[]")};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`evans-clearance-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast("Backup exported ✓");
 }
 async function importBackup(e){
   const file=e.target.files?.[0];if(!file)return;
   try{const payload=JSON.parse(await file.text());if(!Array.isArray(payload.quotes))throw new Error("Invalid backup");
-    state=payload.quotes;saveState();if(payload.business)localStorage.setItem("epc_business",JSON.stringify(payload.business));if(payload.ownerPin)localStorage.setItem("epc_owner_pin",payload.ownerPin);if(payload.disposalCosts)localStorage.setItem("epc_disposal_costs",JSON.stringify(payload.disposalCosts));if(Number.isFinite(Number(payload.loadLabour)))localStorage.setItem("epc_load_labour",String(payload.loadLabour));if(Array.isArray(payload.disposalHistory))localStorage.setItem("epc_disposal_history",JSON.stringify(payload.disposalHistory));
+    state=payload.quotes;saveState();if(payload.business)localStorage.setItem("epc_business",JSON.stringify(payload.business));if(payload.settings)localStorage.setItem("epc_app_settings",JSON.stringify(payload.settings));if(payload.ownerPin)localStorage.setItem("epc_owner_pin",payload.ownerPin);if(payload.disposalCosts)localStorage.setItem("epc_disposal_costs",JSON.stringify(payload.disposalCosts));if(Number.isFinite(Number(payload.loadLabour)))localStorage.setItem("epc_load_labour",String(payload.loadLabour));if(Array.isArray(payload.disposalHistory))localStorage.setItem("epc_disposal_history",JSON.stringify(payload.disposalHistory));
     loadOwnerPin();loadDisposalCosts();loadBusinessSettings();renderDashboard();toast("Backup restored ✓");
   }catch{toast("That backup file is not valid")};e.target.value="";
 }
@@ -219,7 +278,7 @@ function decodeQuoteLink(raw){try{let s=raw.replace(/-/g,'+').replace(/_/g,'/');
 function createQuoteLink(){
   recalc();
   const d=getData(),b=getBusiness(),p=getPayment();
-  const payload={v:2,name:$("customerName").value.trim(),phone:$("customerPhone").value.trim(),address:$("customerAddress").value.trim(),notes:$("jobNotes").value.trim(),quote:d.quote,number:$("quoteNumber").value||nextQuote(),type:getDocumentType(),business:{name:b.name,phone:b.phone,email:b.email,facebook:b.facebook||"",googleReview:b.googleReview||DEFAULT_BUSINESS.googleReview}};
+  const payload={v:2,name:$("customerName").value.trim(),phone:$("customerPhone").value.trim(),address:$("customerAddress").value.trim(),notes:$("jobNotes").value.trim(),quote:d.quote,number:$("quoteNumber").value||nextQuote(),type:getDocumentType(),business:{name:b.name,phone:b.phone,email:b.email,facebook:b.facebook||"",googleReview:b.googleReview||DEFAULT_BUSINESS.googleReview},ui:getAppSettings().ui};
   if(!payload.name&&!payload.address){toast("Add customer details first");return}
   const base=(location.protocol==='http:'||location.protocol==='https:')?location.origin:window.location.href.split('#')[0].replace(/[^/]*$/,''); const url=base.replace(/\/$/,'')+'/customer.html#quote='+encodeQuoteLink(payload);
   const pendingJob=getSelectedQuote();
@@ -270,18 +329,19 @@ function fullHousePrice(){
 
   // Complete property / ready-to-market pricing. Bedroom base includes a
   // normal kitchen, one bathroom, two reception rooms and normal access.
-  const bedroomBase={0:0,1:700,2:1000,3:1400,4:1750,5:2100,6:2500,7:2900,8:3300};
+  const fh=getAppSettings().fullHouse, bedroomBase=Object.fromEntries(fh.bedroomBase.map((v,i)=>[i,v]));
   let total=bedroomBase[bedrooms] ?? (700 + Math.max(0,bedrooms-1)*400);
-  total += Math.max(0,reception-2)*100;
-  total += Math.max(0,bathrooms-1)*75;
-  if(kitchen===0) total-=100;
+  total += Math.max(0,reception-2)*Number(fh.extraReception||0);
+  total += Math.max(0,bathrooms-1)*Number(fh.extraBathroom||0);
+  if(kitchen===0) total+=Number(fh.noKitchen||0);
+  const frontOptions=fh.front||[0,150,200,300], backOptions=fh.back||[0,250,350,500,650];
   total += front + back;
-  if(garage) total+=200;
-  if(shed) total+=150;
-  if(loft) total+=150;
-  if(heavy) total+=200;
-  if(extraWaste) total+=250;
-  if(loads>1) total+=(loads-1)*250;
+  if(garage) total+=Number(fh.garage||0);
+  if(shed) total+=Number(fh.shed||0);
+  if(loft) total+=Number(fh.loft||0);
+  if(heavy) total+=Number(fh.heavy||0);
+  if(extraWaste) total+=Number(fh.extraWaste||0);
+  if(loads>1) total+=(loads-1)*Number(fh.extraLoad||0);
   total=Math.round(total/50)*50;
   return {total,bedrooms,reception,bathrooms,kitchen,hallways,front,back,garage,shed,loft,heavy,extraWaste,loads};
 }
@@ -306,14 +366,14 @@ function getData(){
   const labour=labourBase+extraTotal;
   const totalCost=wasteCost+labour;
   const mode=document.querySelector(".price-options .selected")?.dataset.price||"standard";
-  let quote=totalCost*1.5;if(mode==="plus10")quote=totalCost*1.5*1.1;if(mode==="plus20")quote=totalCost*1.5*1.2;if(mode==="custom"){
+  const settings=getAppSettings(); let quote=totalCost*Number(settings.multiplier||1.5);if(mode==="plus10")quote=totalCost*Number(settings.multiplier||1.5)*1.1;if(mode==="plus20")quote=totalCost*Number(settings.multiplier||1.5)*1.2;if(mode==="custom"){
     const raw=$("customPrice").value;
     quote=raw==="" ? 0 : Math.max(0, Number(raw)||0);
   }
   const fullHouseEnabled=Boolean($("fullHouseToggle")?.checked);
   const fullHouse=fullHouseEnabled?fullHousePrice():null;
   if(fullHouseEnabled && mode!=="custom") quote=fullHouse.total;
-  quote=Math.max(0,quote);
+  quote=Math.max(Number(settings.minCharge||0),quote);
   return {waste,extras,extraTotal,wasteCost,labourBase,labour,totalCost,quote,mode,priceOverride:mode==="custom",fullHouseEnabled,fullHouse};
 }
 function jobType(w){
@@ -354,7 +414,7 @@ function recalc(){
   updatePaymentSummary();
 }
 function showScreen(id){["ownerScreen","customerScreen","dashboardScreen"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
-function showCustomer(){recalc();showScreen("customerScreen")}
+function showCustomer(){recalc();applyOwnerCustomizations();showScreen("customerScreen")}
 function showDashboard(){ $("pinInput").value="";$("pinModal").classList.remove("hidden"); }
 function checkPin(){if($("pinInput").value===CONFIG.pin){$("pinModal").classList.add("hidden");renderDashboard();showScreen("dashboardScreen")}else toast("Incorrect PIN")}
 function saveQuote(){
@@ -412,107 +472,21 @@ async function logoDataUrl(){
 async function makePdfQuote(){
   recalc();
   if(!window.jspdf||!window.jspdf.jsPDF){toast("PDF library not loaded — check your internet connection");return}
-  const d=getData(), p=getPayment(), {jsPDF}=window.jspdf, doc=new jsPDF({unit:"mm",format:"a4"});
-  const name=$("customerName").value.trim()||"Customer";
-  const phone=$("customerPhone").value.trim();
-  const address=$("customerAddress").value.trim();
-  const notes=$("jobNotes").value.trim();
-  const type=getDocumentType();
-  const number=$("quoteNumber").value||nextDocumentNumber(type);
-  const date=new Date().toLocaleDateString("en-GB");
-  const bankDetailsVisible=p.method==="Bank Transfer"||p.status==="Outstanding";
-  doc.setFillColor(17,24,39);doc.rect(0,0,210,38,"F");
-  const logo=await logoDataUrl();
-  if(logo) try{doc.addImage(logo,"JPEG",14,7,24,24)}catch(e){}
-  doc.setTextColor(255,255,255);doc.setFontSize(18);doc.setFont(undefined,"bold");doc.text(safePdfText(getBusiness().name.toUpperCase()),44,17);
-  doc.setFontSize(9);doc.setFont(undefined,"normal");doc.text("Professional Waste Removal & Property Clearance",44,25);
-  doc.text(safePdfText(`${getBusiness().phone}  •  ${getBusiness().email}`),44,31);
-
-  doc.setTextColor(17,24,39);doc.setFontSize(13);doc.setFont(undefined,"bold");doc.text(type==="Invoice"?"INVOICE":"QUOTATION",16,51);
-  doc.setFontSize(10);doc.setFont(undefined,"normal");
-  doc.text(`${type==="Invoice"?"Invoice":"Quote"} number: ${safePdfText(number)}`,16,59);
-  doc.text(`${type==="Invoice"?"Invoice date":"Date"}: ${date}`,16,65);
-
-  let y=77;
-  doc.setFont(undefined,"bold");doc.text("Customer details",16,y);y+=7;
-  doc.setFont(undefined,"normal");doc.text(`Name: ${safePdfText(name)}`,16,y);y+=6;
-  if(phone){doc.text(`Phone: ${safePdfText(phone)}`,16,y);y+=6;}
-  if(address){doc.text("Address:",16,y);y+=5;const lines=doc.splitTextToSize(safePdfText(address),178).slice(0,3);doc.text(lines,16,y);y+=lines.length*4;}
-
-  y+=7;doc.setDrawColor(220,220,220);doc.line(16,y,194,y);y+=10;
-  doc.setFont(undefined,"bold");doc.setFontSize(11);doc.text(type==="Invoice"?"Invoice items":"Quote items",16,y);doc.text("Amount",194,y,{align:"right"});y+=7;
-  doc.setFont(undefined,"normal");doc.setFontSize(10);
-  doc.text("Property clearance / waste removal",16,y);doc.text(money(d.quote),194,y,{align:"right"});y+=7;
-  if(d.extras && Object.keys(d.extras).length){
-    Object.entries(d.extras).forEach(([label,value])=>{doc.text(safePdfText(label),16,y);doc.text(money(value),194,y,{align:"right"});y+=6;});
-  }
-  doc.setDrawColor(180,180,180);doc.line(120,y,194,y);y+=9;
-  doc.setFont(undefined,"bold");doc.setFontSize(16);doc.text(type==="Invoice"?"AMOUNT DUE":"TOTAL",120,y);doc.text(money(d.quote),194,y,{align:"right"});y+=13;
-
-  doc.setFontSize(11);doc.text(type==="Invoice"?"Payment details":"Payment",16,y);y+=7;
-  doc.setFont(undefined,"normal");doc.setFontSize(10);
-  doc.text(`Payment method: ${safePdfText(p.method)}`,16,y);y+=6;
-  doc.setFont(undefined,"bold");
-  doc.text(`Payment status: ${safePdfText(p.status.toUpperCase())}`,16,y);y+=8;
-  if(type==="Invoice"){
-    doc.setFont(undefined,"normal");doc.setFontSize(9);doc.setTextColor(90,90,90);
-    doc.text(p.status==="Paid"?"This invoice has been paid in full.":"Payment is outstanding. Please use the payment details below.",16,y);y+=8;
-    doc.setTextColor(17,24,39);
-  }
-
-  if(bankDetailsVisible){
-    doc.setFillColor(245,247,250);doc.roundedRect(16,y-2,178,31,3,3,"F");
-    doc.setFont(undefined,"bold");doc.text("Bank transfer details",22,y+6);y+=12;
-    doc.setFont(undefined,"normal");doc.text("Account name: Kyle Evans",22,y);y+=5;
-    doc.text("Sort code: 04-29-09",22,y);y+=5;
-    doc.text("Account number: 60851333",22,y);y+=9;
-  }
-
-  if(notes){
-    doc.setFont(undefined,"bold");doc.setFontSize(9);doc.text("Job notes",16,y);y+=5;
-    doc.setFont(undefined,"normal");const lines=doc.splitTextToSize(safePdfText(notes),178).slice(0,3);doc.text(lines,16,y);y+=lines.length*4+5;
-  }
-
-  doc.setFont(undefined,"normal");doc.setFontSize(9);doc.setTextColor(90,90,90);
-  const terms=type==="Invoice"?[
-    "This invoice relates to the property clearance / waste removal services described above.",
-    "Any additional work or waste not included in the agreed work may incur an additional charge.",
-    "Please retain this invoice for your records.",
-    "Payment is due as agreed with Evans Property Clearance."
-  ]:[
-    "This quotation is based on the information and/or photographs provided at the time of quoting.",
-    "The final price may change if the amount or type of waste differs substantially from the quotation.",
-    "Additional work or waste not included in this quotation may incur an additional charge.",
-    "Payment is due as agreed with Evans Property Clearance."
-  ];
-  let ty=Math.min(Math.max(y+4,228),252);doc.setTextColor(17,24,39);doc.setFont(undefined,"bold");doc.setFontSize(9);doc.text("Terms & conditions",16,ty);ty+=5;doc.setFont(undefined,"normal");doc.setFontSize(8);
-  terms.forEach(t=>{const lines=doc.splitTextToSize("• "+t,178).slice(0,2);doc.text(lines,16,ty);ty+=lines.length*3.6+1;});
-
-  // Review request on customer invoices: give customers the choice of Facebook or Google.
-  if(type==="Invoice") {
-    const reviewY=268;
-    const facebook=getBusiness().facebook||"";
-    const google=getBusiness().googleReview||DEFAULT_BUSINESS.googleReview;
-    doc.setTextColor(17,24,39);doc.setFont(undefined,"bold");doc.setFontSize(9);
-    doc.text("Happy with our service? We'd really appreciate a review.",16,reviewY);
-    doc.setFont(undefined,"normal");doc.setFontSize(8);
-    doc.text("Leave a review on:",16,reviewY+5);
-    let rx=45;
-    if(facebook){
-      doc.setTextColor(17,24,39);doc.textWithLink("Facebook",rx,reviewY+5,{url:facebook});
-      doc.line(rx,reviewY+6,rx+20,reviewY+6);
-      rx+=28;
-    }
-    doc.setTextColor(17,24,39);doc.textWithLink("Google",rx,reviewY+5,{url:google});
-    doc.line(rx,reviewY+6,rx+16,reviewY+6);
-  }
-  doc.setFontSize(8);doc.setTextColor(90,90,90);doc.text("Thank you for choosing Evans Property Clearance.",16,286);
-  const blob=doc.output("blob");
-  const file=new File([blob],`${number}.pdf`,{type:"application/pdf"});
-  if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
-    try{await navigator.share({title:`Evans Property Clearance ${type} ${number}`,text:`Your waste removal ${type.toLowerCase()} from Evans Property Clearance.`,files:[file]});toast("PDF ready to share");return}catch(e){if(e.name==="AbortError")return}
-  }
-  const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast("PDF created");
+  const d=getData(),pmt=getPayment(),{jsPDF}=window.jspdf,doc=new jsPDF({unit:"mm",format:"a4"}),cfg=getPdfSettings(),L=cfg.layout;
+  const b=getBusiness(),name=$("customerName").value.trim()||"Customer",phone=$("customerPhone").value.trim(),address=$("customerAddress").value.trim(),notes=$("jobNotes").value.trim(),type=getDocumentType(),number=$("quoteNumber").value||nextDocumentNumber(type),date=new Date().toLocaleDateString("en-GB");
+  const pos=k=>({x:Number(L[k]?.x)||0,y:Number(L[k]?.y)||0});
+  const hexRgb=h=>{const m=String(h||"").replace("#","").match(/^([0-9a-f]{6})$/i);return m?[parseInt(m[1].slice(0,2),16),parseInt(m[1].slice(2,4),16),parseInt(m[1].slice(4,6),16)]:[17,24,39]};const headerRgb=hexRgb(cfg.headerColor),textRgb=hexRgb(cfg.textColor),mutedRgb=hexRgb(cfg.mutedColor);doc.setFillColor(...headerRgb);doc.rect(0,0,210,38,"F");const logo=await logoDataUrl();if(logo)try{doc.addImage(logo,"JPEG",Number(cfg.logoX)||14,Number(cfg.logoY)||7,Number(cfg.logoWidth)||24,Number(cfg.logoHeight)||24)}catch(e){}
+  const hp=pos("header");doc.setTextColor(255,255,255);doc.setFontSize(18);doc.setFont(undefined,"bold");doc.text(safePdfText(b.name.toUpperCase()),Math.max(44,hp.x+44),17+hp.y);doc.setFontSize(9);doc.setFont(undefined,"normal");doc.text(safePdfText(cfg.subtitle),Math.max(44,hp.x+44),25+hp.y);let contact=[];if(cfg.showPhone)contact.push(b.phone);if(cfg.showEmail)contact.push(b.email);if(contact.length)doc.text(safePdfText(contact.join("  •  ")),Math.max(44,hp.x+44),31+hp.y);
+  const dp=pos("document");doc.setTextColor(...textRgb);doc.setFontSize(13);doc.setFont(undefined,"bold");doc.text(safePdfText(type==="Invoice"?cfg.invoiceHeading:cfg.quoteHeading),dp.x,dp.y);doc.setFontSize(10);doc.setFont(undefined,"normal");doc.text(`${type==="Invoice"?"Invoice":"Quote"} number: ${safePdfText(number)}`,dp.x,dp.y+8);doc.text(`${type==="Invoice"?"Invoice date":"Date"}: ${date}`,dp.x,dp.y+14);
+  const cp=pos("customer");doc.setFont(undefined,"bold");doc.text(safePdfText(cfg.customerHeading),cp.x,cp.y);let y=cp.y+7;doc.setFont(undefined,"normal");doc.text(`Name: ${safePdfText(name)}`,cp.x,y);y+=6;if(cfg.showCustomerPhone&&phone){doc.text(`Phone: ${safePdfText(phone)}`,cp.x,y);y+=6}if(cfg.showAddress&&address){doc.text("Address:",cp.x,y);y+=5;const lines=doc.splitTextToSize(safePdfText(address),178).slice(0,3);doc.text(lines,cp.x,y);}
+  const ip=pos("items"), itemY=ip.y;doc.setFont(undefined,"bold");doc.setFontSize(11);doc.text(safePdfText(type==="Invoice"?cfg.itemsInvoiceHeading:cfg.itemsQuoteHeading),ip.x,itemY);doc.text("Amount",194,itemY,{align:"right"});let iy=itemY+7;doc.setFont(undefined,"normal");doc.setFontSize(10);doc.text("Property clearance / waste removal",ip.x,iy);doc.text(money(d.quote),194,iy,{align:"right"});iy+=7;if(d.extras&&Object.keys(d.extras).length)Object.entries(d.extras).forEach(([label,value])=>{doc.text(safePdfText(label),ip.x,iy);doc.text(money(value),194,iy,{align:"right"});iy+=6});
+  const tp=pos("total");doc.setDrawColor(180,180,180);doc.line(Math.max(80,tp.x),tp.y-6,194,tp.y-6);doc.setFont(undefined,"bold");doc.setFontSize(16);doc.text(safePdfText(type==="Invoice"?cfg.totalInvoiceLabel:cfg.totalQuoteLabel),tp.x,tp.y);doc.text(money(d.quote),194,tp.y,{align:"right"});
+  if(cfg.showPayment){const pp=pos("payment");doc.setFontSize(11);doc.text(safePdfText(type==="Invoice"?cfg.paymentInvoiceHeading:cfg.paymentQuoteHeading),pp.x,pp.y);doc.setFont(undefined,"normal");doc.setFontSize(10);doc.text(`Payment method: ${safePdfText(pmt.method)}`,pp.x,pp.y+7);doc.setFont(undefined,"bold");doc.text(`Payment status: ${safePdfText(pmt.status.toUpperCase())}`,pp.x,pp.y+13);if(type==="Invoice"){doc.setFont(undefined,"normal");doc.setFontSize(9);doc.setTextColor(90,90,90);doc.text(safePdfText(pmt.status==="Paid"?cfg.paidText:cfg.outstandingText),pp.x,pp.y+19);doc.setTextColor(17,24,39)}}
+  const bankDetailsVisible=cfg.showBankDetails&&(pmt.method==="Bank Transfer"||pmt.status==="Outstanding");if(bankDetailsVisible){const bp=pos("payment");const by=bp.y+27;doc.setFillColor(245,247,250);doc.roundedRect(16,by-2,178,31,3,3,"F");doc.setFont(undefined,"bold");doc.text(safePdfText(cfg.bankHeading),22,by+6);doc.setFont(undefined,"normal");doc.text(`Account name: ${safePdfText(cfg.bankAccountName)}`,22,by+12);doc.text(`Sort code: ${safePdfText(cfg.bankSortCode)}`,22,by+17);doc.text(`Account number: ${safePdfText(cfg.bankAccountNumber)}`,22,by+22)}
+  if(cfg.showNotes&&notes){const np=pos("notes");doc.setFont(undefined,"bold");doc.setFontSize(9);doc.text(safePdfText(cfg.notesHeading),np.x,np.y);doc.setFont(undefined,"normal");const lines=doc.splitTextToSize(safePdfText(notes),178).slice(0,3);doc.text(lines,np.x,np.y+5)}
+  if(cfg.showTerms){const tr=pos("terms");doc.setTextColor(...textRgb);doc.setFont(undefined,"bold");doc.setFontSize(9);doc.text(safePdfText(cfg.termsHeading),tr.x,tr.y);doc.setFont(undefined,"normal");doc.setFontSize(8);let ty=tr.y+5;(type==="Invoice"?cfg.invoiceTerms:cfg.quoteTerms).forEach(t=>{const lines=doc.splitTextToSize("• "+safePdfText(t),178).slice(0,2);doc.text(lines,tr.x,ty);ty+=lines.length*3.6+1})}
+  if(type==="Invoice"&&cfg.showReview){const rp=pos("review"),facebook=b.facebook||"",google=b.googleReview||DEFAULT_BUSINESS.googleReview;doc.setTextColor(17,24,39);doc.setFont(undefined,"bold");doc.setFontSize(9);doc.text(safePdfText(cfg.reviewHeading),rp.x,rp.y);doc.setFont(undefined,"normal");doc.setFontSize(8);doc.text(safePdfText(cfg.reviewSubheading),rp.x,rp.y+5);let rx=rp.x+30;if(facebook){doc.textWithLink("Facebook",rx,rp.y+5,{url:facebook});rx+=28}doc.textWithLink("Google",rx,rp.y+5,{url:google})}
+  const fp=pos("footer");doc.setFontSize(8);doc.setTextColor(...mutedRgb);doc.text(safePdfText(cfg.thankYou),fp.x,fp.y);const blob=doc.output("blob"),file=new File([blob],`${number}.pdf`,{type:"application/pdf"});if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({title:`${b.name} ${type} ${number}`,text:`Your ${type.toLowerCase()} from ${b.name}.`,files:[file]});toast("PDF ready to share");return}catch(e){if(e.name==="AbortError")return}}const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast("PDF created")
 }
 let aiPhotoData=null;
 let aiMediaData=[];
@@ -815,9 +789,9 @@ function bindEnhanced(){
   $('calendarGrid')?.addEventListener('click',e=>{const b=e.target.closest('[data-cal-date]');if(b)renderCalendarJobs(b.dataset.calDate)});
   $('closeLoadModal')?.addEventListener('click',()=>$('loadModal').classList.add('hidden'));$('addLoadBtn')?.addEventListener('click',addLoad);$('loadList')?.addEventListener('click',e=>{const b=e.target.closest('[data-remove-load]');if(b)removeLoad(Number(b.dataset.removeLoad))});
   $('calendarPrev')?.addEventListener('click',()=>{calendarCursor.setMonth(calendarCursor.getMonth()-1);renderCalendar()});$('calendarNext')?.addEventListener('click',()=>{calendarCursor.setMonth(calendarCursor.getMonth()+1);renderCalendar()});
-  $('saveBusinessSettingsBtn')?.addEventListener('click',saveBusinessSettings);
+  $('saveBusinessSettingsBtn')?.addEventListener('click',saveBusinessSettings);$('resetPdfSettingsBtn')?.addEventListener('click',()=>{if(confirm('Reset all PDF wording, visibility, colours, logo sizing and positions to the original defaults?')){const s=getAppSettings();s.pdf=cloneDefaultSettings().pdf;saveAppSettings(s);renderAppSettings();toast('PDF settings reset ✓')}});$('saveFullHousePricingBtn')?.addEventListener('click',saveAdvancedPricing);$('saveCommonWeightsBtn')?.addEventListener('click',saveAdvancedPricing);$('saveExtraPricesBtn')?.addEventListener('click',saveAdvancedPricing);$('saveAllOwnerSettingsBtn')?.addEventListener('click',saveAllOwnerSettings);$('resetAllSettingsBtn')?.addEventListener('click',resetAppSettings);
   $('resetAiLearningBtn')?.addEventListener('click',()=>{if(confirm('Reset all saved AI disposal-cost learning records?')){localStorage.removeItem('epc_ai_learning');renderLearningRecords();if($('dashboardAiLearning'))$('dashboardAiLearning').textContent=getAiLearningStatus();toast('AI learning records reset')}});
-  loadBusinessSettings();renderDisposalHistory();renderLearningRecords();
+  loadBusinessSettings();renderDisposalHistory();renderLearningRecords();renderAppSettings();
 }
 function bind(){bindCore();bindEnhanced()}
 async function init(){
@@ -827,7 +801,7 @@ async function init(){
     if(Array.isArray(saved)){state=saved;localStorage.setItem("epc_quotes",JSON.stringify(state));}
     else if(state.length) await idbSet("epc_quotes",state);
   }catch{}
-  buildWaste();buildCommon();buildExtras();renderDisposalCostSettings();loadBusinessSettings();
+  const persisted=getAppSettings();if(persisted.commonWeights){Object.entries(persisted.commonWeights).forEach(([k,v])=>{if(CONFIG.common[k]!=null&&Number.isFinite(Number(v)))CONFIG.common[k]=Number(v)});Object.keys(CONFIG.common).forEach(name=>{CONFIG.weights[name]=name==='Black Bags'?`${CONFIG.common[name].toFixed(2)} t each`:`${CONFIG.common[name].toFixed(3)} t`})}buildWaste();buildCommon();buildExtras();renderDisposalCostSettings();loadBusinessSettings();renderAppSettings();renderAdvancedPricingSettings();applyOwnerCustomizations();
   if(!state.draft)state.draft={waste:{},extras:{},customLabour:0,priceMode:'standard',customPrice:0,paymentMethod:'Cash',paymentStatus:'Outstanding',documentType:'Quote'};
   $('quoteNumber').value=nextQuote();
   const d=new Date();const iso=d.toISOString().slice(0,10);if($('jobDate'))$('jobDate').value=iso;if($('jobTime'))$('jobTime').value='';
@@ -840,49 +814,3 @@ function sendWhatsApp(){sendQuoteWhatsApp(getSelectedQuote())}
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 init();
 
-/* Free local lead finder — owner only. Uses the Vercel /api/leads proxy backed by OpenStreetMap. */
-const LEAD_STORE_KEY='epc_leads';
-function getSavedLeads(){try{return JSON.parse(localStorage.getItem(LEAD_STORE_KEY)||'[]')}catch{return []}}
-function saveSavedLeads(list){localStorage.setItem(LEAD_STORE_KEY,JSON.stringify(list));if(typeof idbSet==='function')idbSet(LEAD_STORE_KEY,list)}
-function leadKey(l){return String(l.id||((l.name||'')+'|'+(l.address||'')+'|'+(l.phone||'')).toLowerCase())}
-function selectedLeadCategories(){return [...document.querySelectorAll('#ownerTabLeads input[type="checkbox"]:checked')].map(x=>x.value)}
-function leadActionHtml(l,i,saved=false){
-  const tel=String(l.phone||'').replace(/[^\d+]/g,'');
-  const web=l.website&&/^https?:\/\//i.test(l.website)?l.website:'';
-  const maps=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((l.name||'')+' '+(l.address||''))}`;
-  const actions=[];
-  if(tel)actions.push(`<button data-lead-action="call" data-index="${i}">📞 CALL</button>`);
-  if(web)actions.push(`<button data-lead-action="website" data-index="${i}">🌐 WEBSITE</button>`);
-  actions.push(`<button data-lead-action="maps" data-index="${i}">📍 MAP</button>`);
-  if(!saved)actions.push(`<button class="primary" data-lead-action="save" data-index="${i}">💾 SAVE LEAD</button>`);
-  else actions.push(`<button data-lead-action="contacted" data-index="${i}">${l.contacted?'✓ CONTACTED':'✓ MARK CONTACTED'}</button>`);
-  return actions.join('');
-}
-function renderLeadRecords(leads,containerId,saved=false){
-  const el=$(containerId);if(!el)return;
-  if(!leads.length){el.innerHTML='<div class="lead-empty">No leads here yet.</div>';return}
-  el.innerHTML=leads.map((l,i)=>`<div class="lead-record ${saved?'lead-saved':''}"><div class="record-top"><div><h3>${escapeHtml(l.name||'Unnamed business')}</h3><div class="lead-meta">${escapeHtml(l.category||'Local business')} · ${escapeHtml(l.address||'Address not listed')}</div>${l.phone?`<div class="lead-meta">📞 ${escapeHtml(l.phone)}</div>`:''}${l.email?`<div class="lead-meta">✉️ ${escapeHtml(l.email)}</div>`:''}</div><span class="lead-score">${Math.min(99,Number(l.score)||50)}% RELEVANCE</span></div><div class="lead-actions">${leadActionHtml(l,i,saved)}</div></div>`).join('');
-  el.querySelectorAll('[data-lead-action]').forEach(btn=>btn.onclick=()=>handleLeadAction(btn.dataset.leadAction,Number(btn.dataset.index),saved));
-}
-function renderSavedLeads(){const saved=getSavedLeads();renderLeadRecords(saved,'savedLeadResults',true)}
-function renderLeads(leads){$('leadCount').textContent=`${leads.length} found`;renderLeadRecords(leads,'leadResults',false)}
-function handleLeadAction(action,index,savedMode){
-  const list=savedMode?getSavedLeads():(window.__epcCurrentLeads||[]),l=list[index];if(!l)return;
-  if(action==='save'){const saved=getSavedLeads();if(!saved.some(x=>leadKey(x)===leadKey(l))){saved.push({...l,savedAt:new Date().toISOString()});saveSavedLeads(saved);toast('Lead saved ✓');renderSavedLeads();}else toast('Lead already saved');return}
-  if(action==='call'&&l.phone){window.location.href='tel:'+String(l.phone).replace(/\s+/g,'');return}
-  if(action==='website'&&l.website){window.open(l.website,'_blank');return}
-  if(action==='maps'){window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((l.name||'')+' '+(l.address||''))}`,'_blank');return}
-  if(action==='contacted'){const saved=getSavedLeads();saved[index]={...saved[index],contacted:true,contactedAt:new Date().toISOString()};saveSavedLeads(saved);renderSavedLeads();toast('Marked contacted ✓');}
-}
-async function findLeads(){
-  const area=$('leadArea').value.trim(),radius=$('leadRadius').value,categories=selectedLeadCategories();
-  if(!area){toast('Enter an area or postcode');return}if(!categories.length){toast('Choose at least one lead type');return}
-  const status=$('leadSearchStatus');status.textContent='Searching free local business data…';$('findLeadsBtn').disabled=true;
-  try{
-    const qs='area='+encodeURIComponent(area)+'&radius='+encodeURIComponent(radius)+'&categories='+encodeURIComponent(categories.join(','));const r=await fetch('/api/leads?'+qs);const data=await r.json();if(!r.ok)throw new Error(data.error||'Lead search failed');
-    const savedKeys=new Set(getSavedLeads().map(leadKey));window.__epcCurrentLeads=(data.leads||[]).filter(l=>!savedKeys.has(leadKey(l)));renderLeads(window.__epcCurrentLeads);status.textContent=`Found ${data.count||0} publicly listed businesses. ${data.count-window.__epcCurrentLeads.length} already saved or duplicate.`;toast(`${window.__epcCurrentLeads.length} new leads found ✓`);
-  }catch(e){status.textContent=e?.message||'Lead search failed';toast('Could not find leads');renderLeads([])}finally{$('findLeadsBtn').disabled=false}
-}
-const oldOwnerTab=ownerTab;
-ownerTab=function(tab){oldOwnerTab(tab);if(tab==='leads'){renderSavedLeads();if($('leadArea')&&!$('leadArea').value){$('leadArea').value='Walsall'}}};
-document.addEventListener('DOMContentLoaded',()=>{if($('findLeadsBtn'))$('findLeadsBtn').onclick=findLeads;renderSavedLeads()});
