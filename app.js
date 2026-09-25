@@ -665,6 +665,8 @@ function bookJob(i){
 }
 function completeJob(i){
   const q=state[i];if(!q)return;
+  if(jobStatus(q)==='Completed'){openJobEditor(i);return}
+  if(!confirm(`Mark ${q.name||'this job'} as completed? This will automatically create the invoice.`))return;
   q.status='Completed';q.completedAt=q.completedAt||todayISO();
   ensureInvoiceForJob(q);
   saveState();renderDashboard();renderInvoices();
@@ -827,7 +829,7 @@ function renderJobCard(q,i,mode='jobs'){
   const status=jobStatus(q), actions=[];
   if(status==='Pending Acceptance'){actions.push(`<button class="primary" data-job-action="accept" data-index="${i}">✅ MARK ACCEPTED</button>`);actions.push(`<button data-job-action="deny" data-index="${i}">❌ MARK DENIED</button>`)}
   if(status==='Accepted')actions.push(`<button data-job-action="book" data-index="${i}">📅 BOOK JOB</button>`);
-  if(status==='Booked')actions.push(`<button data-job-action="complete" data-index="${i}">✅ COMPLETE</button>`);
+  if(status!=='Completed'&&status!=='Cancelled'&&status!=='Archived')actions.push(`<button class="primary" data-job-action="complete" data-index="${i}">✅ MARK JOB COMPLETED</button>`);
   if(status!=='Cancelled'&&status!=='Archived')actions.push(`<button data-job-action="sendbooking" data-index="${i}">💬 SEND MESSAGE</button>`);
   if(q.address)actions.push(`<button data-job-action="navigate" data-index="${i}">📍 NAVIGATE</button>`);
   if(status==='Booked'||status==='Completed')actions.push(`<button data-job-action="loads" data-index="${i}">🚛 LOAD TRACKING</button>`);
