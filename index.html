@@ -165,6 +165,7 @@
         <button data-owner-tab="jobs">📋 Jobs</button>
         <button data-owner-tab="calendar">📅 Calendar</button>
         <button data-owner-tab="payments">💷 Payments</button>
+        <button data-owner-tab="invoices">🧾 Invoices</button>
         <button data-owner-tab="settings">⚙️ Owner Controls</button>
       </div>
 
@@ -184,15 +185,17 @@
           <div><span>Total jobs</span><strong id="totalJobsStat">0</strong></div><div><span>Average job</span><strong id="averageJobStat">£0.00</strong></div><div><span>Completed</span><strong id="completedJobsStat">0</strong></div><div><span>Paid jobs</span><strong id="paidJobsStat">0</strong></div>
         </div></div>
         <div class="card"><h2>🤖 AI disposal-cost learning</h2><p id="dashboardAiLearning" class="muted">No real disposal costs recorded yet.</p></div>
+        <div class="card owner-invoice-home"><h2>🧾 Invoices</h2><p class="muted">Manage your invoices directly from the Owner Menu. Paid jobs automatically receive an invoice number and appear here.</p><button class="primary" type="button" data-open-invoices>🧾 OPEN INVOICE SECTION</button><div id="ownerOverviewInvoicesList"></div></div>
         <div class="card"><h2>Recent jobs</h2><div id="savedList"></div></div>
       </div>
 
       <div id="ownerTabJobs" class="owner-tab hidden"><div class="card"><h2>📋 Jobs</h2><p class="muted">Turn accepted quotes into booked jobs, then mark them completed.</p><div class="job-filters"><button class="selected" data-job-filter="active">ACTIVE</button><button data-job-filter="archived">ARCHIVED</button><button data-job-filter="all">ALL</button></div><div id="jobsList"></div></div></div>
       <div id="ownerTabCalendar" class="owner-tab hidden"><div class="card"><div class="calendar-head"><button id="calendarPrev">‹</button><h2 id="calendarTitle">Calendar</h2><button id="calendarNext">›</button></div><div id="calendarGrid" class="calendar-grid"></div><div id="calendarJobs" class="calendar-jobs"></div></div></div>
       <div id="ownerTabPayments" class="owner-tab hidden"><div class="card"><h2>💷 Payments</h2><div id="paymentsList"></div></div></div>
+      <div id="ownerTabInvoices" class="owner-tab hidden"><div class="card"><h2>🧾 Invoices</h2><p class="muted">Every completed job automatically gets an invoice record. From here you can generate/share the PDF, send the invoice message by WhatsApp, open an email, or mark the invoice paid.</p><div id="invoicesList"></div></div></div>
       <div id="ownerTabSettings" class="owner-tab hidden">
         <div class="card owner-settings"><h2>⚙️ Owner Settings</h2><p class="muted">Business controls are kept here and are only available after unlocking the Owners menu.</p>
-          <div class="settings-section"><h3>💷 Disposal costs & load labour</h3><p class="muted">Change these whenever your disposal/tip prices go up or down. New rates are used for new quotes and AI estimates. You can also set the labour added to each tracked load.</p><div id="disposalCostSettings"></div><button class="primary" id="saveDisposalCostsBtn" type="button">💾 SAVE DISPOSAL COSTS</button></div>
+          <div class="settings-section invoice-owner-section"><h3>🧾 INVOICE MANAGEMENT</h3><p class="muted">All invoices are managed here. When you mark a job as PAID, an invoice is automatically created and appears below.</p><button class="primary" type="button" data-open-invoices>🧾 VIEW ALL INVOICES</button><div id="ownerInvoicesList"></div></div><div class="settings-section"><h3>💷 Disposal costs & load labour</h3><p class="muted">Change these whenever your disposal/tip prices go up or down. New rates are used for new quotes and AI estimates. You can also set the labour added to each tracked load.</p><div id="disposalCostSettings"></div><button class="primary" id="saveDisposalCostsBtn" type="button">💾 SAVE DISPOSAL COSTS</button></div>
           <div class="settings-section"><h3>🔑 Change owner passcode</h3><p class="muted">Use 4 to 8 numbers. Your current passcode is never displayed.</p><label>New passcode<input id="newOwnerPin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" placeholder="New passcode"></label><label>Confirm new passcode<input id="confirmOwnerPin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" placeholder="Confirm passcode"></label><button id="changeOwnerPinBtn" type="button">🔐 CHANGE PASSCODE</button></div>
           <div class="settings-section"><h3>🏢 Business details</h3><p class="muted">These details can be changed without editing the app. Customers can use the saved Facebook or Google links to leave a review.</p><label>Business name<input id="businessNameSetting"></label><label>Phone<input id="businessPhoneSetting" type="tel"></label><label>Email<input id="businessEmailSetting" type="email"></label><label>Facebook page link<input id="facebookPageSetting" type="url" placeholder="https://www.facebook.com/your-page"></label><label>Google review link<input id="googleReviewSetting" type="url" placeholder="https://g.page/r/your-review-link"></label><button class="primary" id="saveBusinessSettingsBtn" type="button">💾 SAVE BUSINESS DETAILS</button></div>
           <div class="settings-section"><div id="uiCustomization"></div></div>
@@ -274,6 +277,30 @@
       <div class="ai-disclaimer">AI estimates are approximate. Multiple photos give better coverage. Check the result and adjust the quote before sending it to the customer.</div>
       <button id="addAiQuoteBtn" class="primary hidden">ADD ESTIMATE TO QUOTE</button>
       <button id="closeAiBtn">CLOSE</button>
+    </div>
+  </div>
+
+  <div id="jobEditModal" class="modal hidden">
+    <div class="modal-panel">
+      <button class="close" id="closeJobEdit">×</button>
+      <h2>✏️ Completed Job</h2>
+      <p id="jobEditTitle" class="muted"></p>
+      <div class="stats-mini">
+        <div><span>Status</span><strong id="jobEditStatus">Completed</strong></div>
+        <div><span>Customer quote</span><strong id="jobEditQuote">£0.00</strong></div>
+        <div><span>Estimated disposal</span><strong id="jobEditEstimatedDisposal">£0.00</strong></div>
+        <div><span>Payment</span><strong id="jobEditPaymentStatus">Outstanding</strong></div>
+      </div>
+      <div class="settings-section">
+        <label>Actual disposal cost (£)
+          <input id="jobEditActualDisposal" type="number" min="0" step="0.01" inputmode="decimal" placeholder="What you actually paid at the tip / disposal site">
+        </label>
+        <p class="muted">Enter only the real disposal/tipping cost here — <strong>do not include labour</strong>. Saving this teaches the AI from the actual cost and updates the job profit using disposal cost only.</p>
+        <div class="record-actions">
+          <button class="primary" id="saveJobEdit" type="button">💾 SAVE COMPLETED JOB</button>
+          <button id="jobInvoiceBtn" type="button">🧾 MAKE INVOICE</button>
+        </div>
+      </div>
     </div>
   </div>
 

@@ -268,6 +268,9 @@ function bindCore(){
   $("dashboardBack").onclick=()=>showScreen("ownerScreen");
   $("pinCancel").onclick=()=>$("pinModal").classList.add("hidden");
   $("pinSubmit").onclick=checkPin;
+  $("closeJobEdit")?.addEventListener("click",()=>$ ("jobEditModal").classList.add("hidden"));
+  $("saveJobEdit")?.addEventListener("click",saveJobEditor);
+  $("jobInvoiceBtn")?.addEventListener("click",()=>invoiceJob(window.currentJobEditIndex));
   if($('exportDataBtn'))$('exportDataBtn').onclick=exportBackup;
   if($('importDataInput'))$('importDataInput').onchange=importBackup;
   updateDocumentType();
@@ -454,8 +457,13 @@ function renderDashboard(){
   $("savedList").onclick=e=>{if(e.target.dataset.view!==undefined){const q=state[Number(e.target.dataset.view)];$("customerPriceDisplay").textContent=money(q.quote);showScreen("customerScreen")}if(e.target.dataset.cost!==undefined){const q=state[Number(e.target.dataset.cost)];showCosts(q)}};
 }
 function showCosts(q=getData()){
-  const d=q.wasteCost!==undefined?q:{wasteCost:getData().wasteCost,labour:q.labour||0,labourBase:q.labourBase||0,extraLabour:q.extraLabour||0,cost:q.cost||getData().totalCost,quote:q.quote||getData().quote,profit:q.profit||((q.quote||0)-(q.cost||0))};
-  let html=`<div class="cost-line"><span>Waste / tip costs</span><strong>${money(d.wasteCost)}</strong></div><div class="cost-line"><span>Base labour</span><strong>${money(d.labourBase)}</strong></div><div class="cost-line"><span>Extra labour</span><strong>${money(d.extraLabour)}</strong></div><div class="cost-line"><span>Total costs</span><strong>${money(d.cost||d.totalCost)}</strong></div><div class="cost-line"><span>Customer quote</span><strong>${money(d.quote)}</strong></div><div class="cost-total">Profit: ${money(d.profit)}</div>`;
+  const actual=q.actualDisposalCost!=null?Number(q.actualDisposalCost):null;
+  const estimated=q.wasteCost!==undefined?Number(q.wasteCost):Math.max(0,Number(q.cost||0)-Number(q.labour||0));
+  const labour=Number(q.labour||0),quote=Number(q.quote||0),profit=actual!=null?quote-actual:quote-Number(q.cost||0);
+  let html=`<div class="cost-line"><span>${actual!=null?'Actual disposal cost':'Estimated disposal cost'}</span><strong>${money(actual!=null?actual:estimated)}</strong></div>`;
+  if(actual!=null)html+=`<div class="cost-line"><span>Estimated disposal cost</span><strong>${money(estimated)}</strong></div>`;
+  html+=`<div class="cost-line"><span>Customer quote</span><strong>${money(quote)}</strong></div><div class="cost-total">Profit (disposal only): ${money(profit)}</div>`;
+  if(actual==null)html+=`<p class="muted">Labour is kept separate and is not included in this profit figure once an actual disposal cost is recorded.</p>`;
   $("costBreakdown").innerHTML=html;$("costDrawer").classList.remove("hidden");
 }
 $("weightsTable").innerHTML=Object.entries(CONFIG.weights).map(([n,w])=>`<div class="weight-row"><span>${n}</span><strong>${w}</strong></div>`).join("");
@@ -623,9 +631,10 @@ function ownerTab(tab){
   document.querySelectorAll('[data-owner-tab]').forEach(b=>b.classList.toggle('selected',b.dataset.ownerTab===tab));
   document.querySelectorAll('.owner-tab').forEach(e=>e.classList.add('hidden'));
   const el=$("ownerTab"+tab.charAt(0).toUpperCase()+tab.slice(1));if(el)el.classList.remove('hidden');
-  if(tab==='overview'||tab==='jobs'||tab==='payments'||tab==='calendar')renderDashboard();
+  if(tab==='overview'||tab==='jobs'||tab==='payments'||tab==='calendar'||tab==='invoices')renderDashboard();
+  if(tab==='invoices')renderInvoices();
   if(tab==='calendar')renderCalendar();
-  if(tab==='settings'){renderDisposalCostSettings();loadBusinessSettings();renderDisposalHistory();renderLearningRecords();}
+  if(tab==='settings'){renderDisposalCostSettings();loadBusinessSettings();renderDisposalHistory();renderLearningRecords();renderInvoices();}
 }
 function jobStatus(q){return q.status||'Quoted'}
 function statusLabel(s){return {'Pending Acceptance':'⏳ Pending Acceptance',Accepted:'✅ Accepted',Denied:'❌ Denied',Quoted:'📝 Quoted',Booked:'📅 Booked',Completed:'✅ Completed',Cancelled:'❌ Cancelled',Archived:'📦 Archived'}[s]||s}
@@ -654,11 +663,20 @@ function bookJob(i){
   if(!q.jobDate){toast('Set a job date on the quote first');return}
   q.status='Booked';q.bookedAt=todayISO();saveState();renderDashboard();toast('Job booked ✓');
 }
-function completeJob(i){const q=state[i];if(!q)return;q.status='Completed';q.completedAt=todayISO();saveState();renderDashboard();toast('Job marked completed ✓')}
+function completeJob(i){
+  const q=state[i];if(!q)return;
+  if(jobStatus(q)==='Completed'){openJobEditor(i);return}
+  if(!confirm(`Mark ${q.name||'this job'} as completed? This will automatically create the invoice.`))return;
+  q.status='Completed';q.completedAt=q.completedAt||todayISO();
+  ensureInvoiceForJob(q);
+  saveState();renderDashboard();renderInvoices();
+  openJobEditor(i);
+  toast(`Job completed ✓ Invoice ${q.invoiceNumber} created automatically`);
+}
 function cancelJob(i){const q=state[i];if(!q)return;if(!confirm('Cancel this job?'))return;q.status='Cancelled';q.cancelledAt=todayISO();saveState();renderDashboard();toast('Job cancelled')}
 function archiveJob(i){const q=state[i];if(!q)return;q.status='Archived';saveState();renderDashboard();toast('Job archived')}
 function restoreJob(i){const q=state[i];if(!q)return;q.status='Quoted';q.customerResponse=undefined;saveState();renderDashboard();toast('Job restored')}
-function markPaid(i){const q=state[i];if(!q)return;q.paymentStatus='Paid';q.payment=q.paymentMethod+' · Paid';q.paidAt=todayISO();saveState();renderDashboard();toast('Payment marked paid ✓')}
+function markPaid(i){const q=state[i];if(!q)return;ensureInvoiceForJob(q);q.paymentStatus='Paid';q.payment=q.paymentMethod+' · Paid';q.paidAt=todayISO();saveState();renderDashboard();renderInvoices();toast(`Payment marked paid ✓ Invoice ${q.invoiceNumber} created automatically`)}
 function markOutstanding(i){const q=state[i];if(!q)return;q.paymentStatus='Outstanding';q.payment=q.paymentMethod+' · Outstanding';saveState();renderDashboard();toast('Payment marked outstanding')}
 function customerMessage(q,type='quote'){
   const b=getBusiness();const name=q.name||'Customer';
@@ -710,15 +728,114 @@ function addLoad(){
   const q=state[i];q.loads=Array.isArray(q.loads)?q.loads:[];q.loads.push({tonnes:Number(tonnes.toFixed(2)),actualDisposalCost:actual===null?null:Number(actual.toFixed(2)),date:todayISO()});saveState();$("loadWeight").value='';$("loadDisposalCost").value='';renderLoadTracking(q);renderDashboard();toast('Load added ✓');
 }
 function removeLoad(n){const i=window.currentLoadJobIndex;if(!Number.isInteger(i)||!state[i])return;const q=state[i];if(!Array.isArray(q.loads))return;q.loads.splice(n,1);saveState();renderLoadTracking(q);renderDashboard();toast('Load removed')}
+function getEstimatedDisposalCost(q){
+  if(q.wasteCost!=null) return Number(q.wasteCost)||0;
+  const labour=Number(q.labour||0), total=Number(q.cost||0);
+  return Math.max(0,total-labour);
+}
+function recordJobDisposalLearning(q,actual){
+  const estimated=getEstimatedDisposalCost(q);
+  if(!Number.isFinite(actual)||actual<0||estimated<=0)return;
+  const rows=getAiLearning();
+  const ratio=actual/estimated;
+  rows.push({date:new Date().toISOString(),actualCost:Number(actual.toFixed(2)),estimatedCost:Number(estimated.toFixed(2)),ratio,waste:q.waste||{},source:'completed-job'});
+  localStorage.setItem('epc_ai_learning',JSON.stringify(rows.slice(-100)));
+}
+function openJobEditor(i){
+  const q=state[i];if(!q)return;
+  window.currentJobEditIndex=i;
+  $('jobEditTitle').textContent=`${q.number} · ${q.name||'Customer'}`;
+  $('jobEditStatus').textContent=statusLabel(jobStatus(q));
+  $('jobEditQuote').textContent=money(q.quote);
+  $('jobEditEstimatedDisposal').textContent=money(getEstimatedDisposalCost(q));
+  $('jobEditActualDisposal').value=q.actualDisposalCost!=null?q.actualDisposalCost:'';
+  $('jobEditPaymentStatus').textContent=q.paymentStatus||'Outstanding';
+  $('jobEditModal').classList.remove('hidden');
+}
+function saveJobEditor(){
+  const i=window.currentJobEditIndex,q=state[i];if(!q)return;
+  const raw=$('jobEditActualDisposal').value.trim();
+  if(raw!=='' && (!Number.isFinite(Number(raw))||Number(raw)<0)){toast('Enter a valid actual disposal cost');return}
+  const previous=q.actualDisposalCost;
+  if(raw==='') delete q.actualDisposalCost;
+  else q.actualDisposalCost=Number(Number(raw).toFixed(2));
+  if(q.actualDisposalCost!=null){
+    q.disposalCost=q.actualDisposalCost;
+    q.profit=Number(q.quote||0)-q.actualDisposalCost;
+    if(previous!==q.actualDisposalCost || previous==null) recordJobDisposalLearning(q,q.actualDisposalCost);
+  }else{
+    q.disposalCost=undefined;
+    q.profit=Number(q.quote||0)-Number(q.cost||0);
+  }
+  if(jobStatus(q)!=='Completed'){q.status='Completed';q.completedAt=q.completedAt||todayISO();}
+  saveState();
+  $('jobEditModal').classList.add('hidden');
+  renderDashboard();renderLearningRecords();
+  if($('dashboardAiLearning'))$('dashboardAiLearning').textContent=getAiLearningStatus();
+  toast('Completed job updated ✓');
+}
+function ensureInvoiceForJob(q){
+  if(!q)return null;
+  if(!q.invoiceNumber)q.invoiceNumber=nextDocumentNumber('Invoice');
+  q.invoiceCreatedAt=q.invoiceCreatedAt||new Date().toISOString();
+  q.invoiceStatus=q.invoiceStatus||'Ready';
+  q.documentType='Invoice';
+  return q;
+}
+async function invoiceJob(i){
+  const q=state[i];if(!q)return;
+  ensureInvoiceForJob(q); saveState(); renderInvoices();
+  const snapshot={name:$('customerName').value,phone:$('customerPhone').value,address:$('customerAddress').value,notes:$('jobNotes').value,jobDate:$('jobDate').value,jobTime:$('jobTime').value,quoteNumber:$('quoteNumber').value,doc:document.querySelector('[data-document-type].selected')?.dataset.documentType||'Quote',paymentMethod:document.querySelector('[data-payment-method].selected')?.dataset.paymentMethod||'Cash',paymentStatus:document.querySelector('[data-payment-status].selected')?.dataset.paymentStatus||'Outstanding'};
+  try{
+    loadQuoteIntoForm(q);
+    $('quoteNumber').value=q.invoiceNumber;
+    document.querySelectorAll('[data-document-type]').forEach(x=>x.classList.toggle('selected',x.dataset.documentType==='Invoice'));
+    updateDocumentType();
+    await makePdfQuote();
+    q.invoiceLastGeneratedAt=new Date().toISOString();
+    q.invoiceStatus='Generated';
+    saveState();renderInvoices();
+  }finally{
+    $('customerName').value=snapshot.name;$('customerPhone').value=snapshot.phone;$('customerAddress').value=snapshot.address;$('jobNotes').value=snapshot.notes;$('jobDate').value=snapshot.jobDate;$('jobTime').value=snapshot.jobTime;$('quoteNumber').value=snapshot.quoteNumber;
+    document.querySelectorAll('[data-document-type]').forEach(x=>x.classList.toggle('selected',x.dataset.documentType===snapshot.doc));
+    document.querySelectorAll('[data-payment-method]').forEach(x=>x.classList.toggle('selected',x.dataset.paymentMethod===snapshot.paymentMethod));
+    document.querySelectorAll('[data-payment-status]').forEach(x=>x.classList.toggle('selected',x.dataset.paymentStatus===snapshot.paymentStatus));
+    updateDocumentType();recalc();
+  }
+}
+function invoiceMessage(q){
+  const b=getBusiness(), name=q.name||'Customer';
+  return `${b.name}\n\nInvoice ${q.invoiceNumber||q.number}\n\nHi ${name}, please find your invoice for ${money(q.quote)}.\n\nThank you for choosing ${b.name}.\n${b.phone}`;
+}
+function sendInvoiceWhatsApp(i){const q=state[i];if(!q)return;window.open('https://wa.me/?text='+encodeURIComponent(invoiceMessage(q)),'_blank')}
+function sendInvoiceEmail(i){
+  const q=state[i];if(!q)return;
+  const subject=encodeURIComponent(`Invoice ${q.invoiceNumber||q.number} - ${getBusiness().name}`);
+  const body=encodeURIComponent(invoiceMessage(q));
+  const email=(q.email||'').trim();
+  window.location.href=`mailto:${email}?subject=${subject}&body=${body}`;
+}
+async function shareInvoicePdf(i){return invoiceJob(i)}
+function renderInvoices(){
+  const els=[$('invoicesList'),$('ownerInvoicesList'),$('ownerOverviewInvoicesList')].filter(Boolean);if(!els.length)return;
+  const rows=state.map((q,i)=>({q,i})).filter(x=>x.q.invoiceNumber||x.q.documentType==='Invoice');
+  const html=rows.length?rows.slice().reverse().map(({q,i})=>{
+    const inv=q.invoiceNumber||q.number;
+    const status=q.paymentStatus||'Outstanding';
+    return `<div class="quote-record"><div class="record-top"><div><strong>${escapeHtml(inv)} — ${escapeHtml(q.name||'No name')}</strong><div class="muted">${statusLabel(jobStatus(q))} · ${escapeHtml(q.invoiceStatus||'Ready')} · ${formatJobDate(q)}</div></div><strong>${money(q.quote)}</strong></div><div class="muted">${escapeHtml(q.email||'No email')} · ${escapeHtml(q.phone||'No phone')} · ${escapeHtml(status)}</div><div class="record-actions"><button class="primary" data-invoice-action="pdf" data-index="${i}">📄 MAKE / SHARE PDF</button><button data-invoice-action="whatsapp" data-index="${i}">💬 WHATSAPP</button><button data-invoice-action="email" data-index="${i}">✉️ EMAIL</button>${status==='Paid'?`<button data-invoice-action="outstanding" data-index="${i}">⏳ UNPAID</button>`:`<button data-invoice-action="paid" data-index="${i}">💷 MARK PAID</button>`}</div></div>`;
+  }).join(''):'<p class="muted">No invoices have been created yet. Completing a job creates one automatically.</p>';
+  els.forEach(el=>el.innerHTML=html);
+}
+
 function renderJobCard(q,i,mode='jobs'){
   const status=jobStatus(q), actions=[];
   if(status==='Pending Acceptance'){actions.push(`<button class="primary" data-job-action="accept" data-index="${i}">✅ MARK ACCEPTED</button>`);actions.push(`<button data-job-action="deny" data-index="${i}">❌ MARK DENIED</button>`)}
   if(status==='Accepted')actions.push(`<button data-job-action="book" data-index="${i}">📅 BOOK JOB</button>`);
-  if(status==='Booked')actions.push(`<button data-job-action="complete" data-index="${i}">✅ COMPLETE</button>`);
+  if(status!=='Completed'&&status!=='Cancelled'&&status!=='Archived')actions.push(`<button class="primary" data-job-action="complete" data-index="${i}">✅ MARK JOB COMPLETED</button>`);
   if(status!=='Cancelled'&&status!=='Archived')actions.push(`<button data-job-action="sendbooking" data-index="${i}">💬 SEND MESSAGE</button>`);
   if(q.address)actions.push(`<button data-job-action="navigate" data-index="${i}">📍 NAVIGATE</button>`);
   if(status==='Booked'||status==='Completed')actions.push(`<button data-job-action="loads" data-index="${i}">🚛 LOAD TRACKING</button>`);
-  if(status==='Completed')actions.push(`<button data-job-action="feedback" data-index="${i}">⭐ REVIEW REQUEST</button>`);
+  if(status==='Completed'){actions.push(`<button data-job-action="editjob" data-index="${i}">✏️ EDIT JOB / DISPOSAL</button>`);actions.push(`<button data-job-action="invoice" data-index="${i}">🧾 MAKE INVOICE</button>`);actions.push(`<button data-job-action="feedback" data-index="${i}">⭐ REVIEW REQUEST</button>`);}
   if(status==='Quoted'||status==='Pending Acceptance'||status==='Accepted'||status==='Booked')actions.push(`<button data-job-action="cancel" data-index="${i}">❌ CANCEL</button>`);
   actions.push(`<button data-job-action="load" data-index="${i}">✏️ LOAD QUOTE</button>`);
   if(q.paymentStatus==='Outstanding'||!q.paymentStatus)actions.push(`<button data-job-action="paid" data-index="${i}">💷 MARK PAID</button>`);else actions.push(`<button data-job-action="outstanding" data-index="${i}">⏳ UNPAID</button>`);
@@ -767,7 +884,8 @@ function loadQuoteIntoForm(q){
   document.querySelectorAll('[data-payment-method]').forEach(b=>b.classList.toggle('selected',b.dataset.paymentMethod===(q.paymentMethod||'Cash')));document.querySelectorAll('[data-payment-status]').forEach(b=>b.classList.toggle('selected',b.dataset.paymentStatus===(q.paymentStatus||'Outstanding')));
   document.querySelectorAll('[data-document-type]').forEach(b=>b.classList.toggle('selected',b.dataset.documentType===(q.documentType||'Quote')));updateDocumentType();recalc();toast('Quote loaded ✓');
 }
-function handleJobAction(e){const b=e.target.closest('[data-job-action]');if(!b)return;const i=Number(b.dataset.index),a=b.dataset.jobAction,q=state[i];if(!q)return;if(a==='accept')markAccepted(i);if(a==='deny')markDenied(i);if(a==='book')bookJob(i);if(a==='complete')completeJob(i);if(a==='paid')markPaid(i);if(a==='outstanding')markOutstanding(i);if(a==='cancel')cancelJob(i);if(a==='archive')archiveJob(i);if(a==='restore')restoreJob(i);if(a==='cost')showCosts(q);if(a==='load')loadQuoteIntoForm(q);if(a==='sendbooking')sendBookingWhatsApp(q);if(a==='reminder')sendReminderWhatsApp(q);if(a==='navigate')openNavigation(q);if(a==='loads')openLoadTracking(i);if(a==='feedback')sendFeedbackWhatsApp(q)}
+function handleJobAction(e){const b=e.target.closest('[data-job-action]');if(!b)return;const i=Number(b.dataset.index),a=b.dataset.jobAction,q=state[i];if(!q)return;if(a==='accept')markAccepted(i);if(a==='deny')markDenied(i);if(a==='book')bookJob(i);if(a==='complete')completeJob(i);if(a==='paid')markPaid(i);if(a==='outstanding')markOutstanding(i);if(a==='cancel')cancelJob(i);if(a==='archive')archiveJob(i);if(a==='restore')restoreJob(i);if(a==='cost')showCosts(q);if(a==='load')loadQuoteIntoForm(q);if(a==='sendbooking')sendBookingWhatsApp(q);if(a==='reminder')sendReminderWhatsApp(q);if(a==='navigate')openNavigation(q);if(a==='loads')openLoadTracking(i);if(a==='feedback')sendFeedbackWhatsApp(q);if(a==='editjob')openJobEditor(i);if(a==='invoice')invoiceJob(i)}
+function handleInvoiceAction(e){const b=e.target.closest('[data-invoice-action]');if(!b)return;const i=Number(b.dataset.index),a=b.dataset.invoiceAction;if(a==='pdf')invoiceJob(i);if(a==='whatsapp')sendInvoiceWhatsApp(i);if(a==='email')sendInvoiceEmail(i);if(a==='paid')markPaid(i);if(a==='outstanding')markOutstanding(i);renderInvoices();}
 function renderDashboard(){
   const now=new Date(),day=now.toISOString().slice(0,10),weekStart=new Date(now);weekStart.setDate(now.getDate()-((now.getDay()+6)%7));weekStart.setHours(0,0,0,0),month=now.getMonth();
   const paid=q=>q.paymentStatus==='Paid';
@@ -784,8 +902,9 @@ function renderDashboard(){
 }
 function bindEnhanced(){
   document.querySelectorAll('[data-owner-tab]').forEach(b=>b.onclick=()=>ownerTab(b.dataset.ownerTab));
+  document.querySelectorAll('[data-open-invoices]').forEach(b=>b.onclick=()=>ownerTab('invoices'));
   document.querySelectorAll('[data-job-filter]').forEach(b=>b.onclick=()=>{jobsFilter=b.dataset.jobFilter;renderJobsList()});
-  $('savedList')?.addEventListener('click',handleJobAction);$('jobsList')?.addEventListener('click',handleJobAction);$('paymentsList')?.addEventListener('click',handleJobAction);$('calendarJobs')?.addEventListener('click',handleJobAction);
+  $('savedList')?.addEventListener('click',handleJobAction);$('jobsList')?.addEventListener('click',handleJobAction);$('paymentsList')?.addEventListener('click',handleJobAction);$('calendarJobs')?.addEventListener('click',handleJobAction);$('invoicesList')?.addEventListener('click',handleInvoiceAction);$('ownerInvoicesList')?.addEventListener('click',handleInvoiceAction);
   $('calendarGrid')?.addEventListener('click',e=>{const b=e.target.closest('[data-cal-date]');if(b)renderCalendarJobs(b.dataset.calDate)});
   $('closeLoadModal')?.addEventListener('click',()=>$('loadModal').classList.add('hidden'));$('addLoadBtn')?.addEventListener('click',addLoad);$('loadList')?.addEventListener('click',e=>{const b=e.target.closest('[data-remove-load]');if(b)removeLoad(Number(b.dataset.removeLoad))});
   $('calendarPrev')?.addEventListener('click',()=>{calendarCursor.setMonth(calendarCursor.getMonth()-1);renderCalendar()});$('calendarNext')?.addEventListener('click',()=>{calendarCursor.setMonth(calendarCursor.getMonth()+1);renderCalendar()});
