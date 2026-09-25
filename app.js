@@ -899,12 +899,12 @@ function renderDashboard(){
   if($('weekJobCount'))$('weekJobCount').textContent=wk.length;if($('weekQuoted'))$('weekQuoted').textContent=money(quoted);if($('weekPaid'))$('weekPaid').textContent=money(paidTotal);if($('weekOutstanding'))$('weekOutstanding').textContent=money(out);if($('weekProfit'))$('weekProfit').textContent=money(profit);
   const completed=visible.filter(q=>jobStatus(q)==='Completed').length;if($('totalJobsStat'))$('totalJobsStat').textContent=visible.length;if($('averageJobStat'))$('averageJobStat').textContent=money(visible.length?visible.reduce((s,q)=>s+Number(q.quote||0),0)/visible.length:0);if($('completedJobsStat'))$('completedJobsStat').textContent=completed;if($('paidJobsStat'))$('paidJobsStat').textContent=visible.filter(paid).length;
   const recent=visible.slice(0,8);if($('savedList'))$('savedList').innerHTML=recent.length?recent.map(q=>renderJobCard(q,state.indexOf(q),'overview')).join(''):'<p class="muted">No saved quotes or jobs yet.</p>';
-  if($('jobsList'))renderJobsList();if($('paymentsList'))renderPaymentsList();
+  if($('jobsList'))renderJobsList();if($('paymentsList'))renderPaymentsList();if($('ownerOverviewInvoicesList'))renderInvoices();
 }
 function bindEnhanced(){
   document.querySelectorAll('[data-owner-tab]').forEach(b=>b.onclick=()=>ownerTab(b.dataset.ownerTab));
   document.querySelectorAll('[data-job-filter]').forEach(b=>b.onclick=()=>{jobsFilter=b.dataset.jobFilter;renderJobsList()});
-  $('savedList')?.addEventListener('click',handleJobAction);$('jobsList')?.addEventListener('click',handleJobAction);$('paymentsList')?.addEventListener('click',handleJobAction);$('calendarJobs')?.addEventListener('click',handleJobAction);$('invoicesList')?.addEventListener('click',handleInvoiceAction);$('ownerInvoicesList')?.addEventListener('click',handleInvoiceAction);
+  $('savedList')?.addEventListener('click',handleJobAction);$('jobsList')?.addEventListener('click',handleJobAction);$('paymentsList')?.addEventListener('click',handleJobAction);$('calendarJobs')?.addEventListener('click',handleJobAction);$('invoicesList')?.addEventListener('click',handleInvoiceAction);$('ownerInvoicesList')?.addEventListener('click',handleInvoiceAction);$('ownerOverviewInvoicesList')?.addEventListener('click',handleInvoiceAction);
   $('calendarGrid')?.addEventListener('click',e=>{const b=e.target.closest('[data-cal-date]');if(b)renderCalendarJobs(b.dataset.calDate)});
   $('closeLoadModal')?.addEventListener('click',()=>$('loadModal').classList.add('hidden'));$('addLoadBtn')?.addEventListener('click',addLoad);$('loadList')?.addEventListener('click',e=>{const b=e.target.closest('[data-remove-load]');if(b)removeLoad(Number(b.dataset.removeLoad))});
   $('calendarPrev')?.addEventListener('click',()=>{calendarCursor.setMonth(calendarCursor.getMonth()-1);renderCalendar()});$('calendarNext')?.addEventListener('click',()=>{calendarCursor.setMonth(calendarCursor.getMonth()+1);renderCalendar()});
