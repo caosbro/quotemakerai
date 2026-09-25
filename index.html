@@ -165,7 +165,7 @@
         <button data-owner-tab="jobs">📋 Jobs</button>
         <button data-owner-tab="calendar">📅 Calendar</button>
         <button data-owner-tab="payments">💷 Payments</button>
-        <button data-owner-tab="settings">⚙️ Owner Controls</button>
+                <button data-owner-tab="settings">⚙️ Owner Controls</button>
       </div>
 
       <div id="ownerTabOverview" class="owner-tab">
@@ -184,6 +184,7 @@
           <div><span>Total jobs</span><strong id="totalJobsStat">0</strong></div><div><span>Average job</span><strong id="averageJobStat">£0.00</strong></div><div><span>Completed</span><strong id="completedJobsStat">0</strong></div><div><span>Paid jobs</span><strong id="paidJobsStat">0</strong></div>
         </div></div>
         <div class="card"><h2>🤖 AI disposal-cost learning</h2><p id="dashboardAiLearning" class="muted">No real disposal costs recorded yet.</p></div>
+        <div class="card owner-invoice-home" style="display:block!important;visibility:visible!important"><h2>🧾 INVOICES</h2><p class="muted">Invoices are shown here on your Owner Dashboard alongside your jobs and payments. When a job is completed or marked paid, its invoice appears below automatically.</p><div id="ownerOverviewInvoicesList"></div></div>
         <div class="card"><h2>Recent jobs</h2><div id="savedList"></div></div>
       </div>
 
@@ -274,6 +275,30 @@
       <div class="ai-disclaimer">AI estimates are approximate. Multiple photos give better coverage. Check the result and adjust the quote before sending it to the customer.</div>
       <button id="addAiQuoteBtn" class="primary hidden">ADD ESTIMATE TO QUOTE</button>
       <button id="closeAiBtn">CLOSE</button>
+    </div>
+  </div>
+
+  <div id="jobEditModal" class="modal hidden">
+    <div class="modal-panel">
+      <button class="close" id="closeJobEdit">×</button>
+      <h2>✏️ Completed Job</h2>
+      <p id="jobEditTitle" class="muted"></p>
+      <div class="stats-mini">
+        <div><span>Status</span><strong id="jobEditStatus">Completed</strong></div>
+        <div><span>Customer quote</span><strong id="jobEditQuote">£0.00</strong></div>
+        <div><span>Estimated disposal</span><strong id="jobEditEstimatedDisposal">£0.00</strong></div>
+        <div><span>Payment</span><strong id="jobEditPaymentStatus">Outstanding</strong></div>
+      </div>
+      <div class="settings-section">
+        <label>Actual disposal cost (£)
+          <input id="jobEditActualDisposal" type="number" min="0" step="0.01" inputmode="decimal" placeholder="What you actually paid at the tip / disposal site">
+        </label>
+        <p class="muted">Enter only the real disposal/tipping cost here — <strong>do not include labour</strong>. Saving this teaches the AI from the actual cost and updates the job profit using disposal cost only.</p>
+        <div class="record-actions">
+          <button class="primary" id="saveJobEdit" type="button">💾 SAVE COMPLETED JOB</button>
+          <button id="jobInvoiceBtn" type="button">🧾 MAKE INVOICE</button>
+        </div>
+      </div>
     </div>
   </div>
 
