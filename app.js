@@ -665,13 +665,17 @@ function bookJob(i){
 }
 function completeJob(i){
   const q=state[i];if(!q)return;
-  if(jobStatus(q)==='Completed'){openJobEditor(i);return}
-  if(!confirm(`Mark ${q.name||'this job'} as completed? This will automatically create the invoice.`))return;
-  q.status='Completed';q.completedAt=q.completedAt||todayISO();
+  if(q.completedAt||jobStatus(q)==='Completed'||jobStatus(q)==='Archived'){toast('This job is already completed');return}
+  if(!confirm(`Mark ${q.name||'this job'} as completed? It will be archived automatically and an invoice will be created.`))return;
+  q.status='Archived';
+  q.completedAt=q.completedAt||todayISO();
+  q.completed=true;
+  q.completedFromStatus='Completed';
+  q.archivedAt=q.archivedAt||new Date().toISOString();
   ensureInvoiceForJob(q);
   saveState();renderDashboard();renderInvoices();
   ownerTab('invoices');
-  toast(`Job completed ✓ Invoice ${q.invoiceNumber} created automatically`);
+  toast(`Job completed ✓ Archived ✓ Invoice ${q.invoiceNumber} created automatically`);
 }
 function cancelJob(i){const q=state[i];if(!q)return;if(!confirm('Cancel this job?'))return;q.status='Cancelled';q.cancelledAt=todayISO();saveState();renderDashboard();toast('Job cancelled')}
 function archiveJob(i){const q=state[i];if(!q)return;q.status='Archived';saveState();renderDashboard();toast('Job archived')}
@@ -889,14 +893,20 @@ function handleInvoiceAction(e){const b=e.target.closest('[data-invoice-action]'
 function renderDashboard(){
   const now=new Date(),day=now.toISOString().slice(0,10),weekStart=new Date(now);weekStart.setDate(now.getDate()-((now.getDay()+6)%7));weekStart.setHours(0,0,0,0),month=now.getMonth();
   const paid=q=>q.paymentStatus==='Paid';
-  const visible=state.filter(q=>jobStatus(q)!=='Archived'),outstanding=visible.filter(q=>!paid(q)).reduce((s,q)=>s+Number(q.quote||0),0);
-  const daily=visible.filter(q=>String(q.date||'').slice(0,10)===day).reduce((s,q)=>s+Number(q.profit||0),0),weekly=visible.filter(q=>new Date(q.date)>=weekStart).reduce((s,q)=>s+Number(q.profit||0),0),monthly=visible.filter(q=>{const d=new Date(q.date);return d.getMonth()===month&&d.getFullYear()===now.getFullYear()}).reduce((s,q)=>s+Number(q.profit||0),0);
-  const dailyRevenue=visible.filter(q=>String(q.date||'').slice(0,10)===day).reduce((s,q)=>s+Number(q.quote||0),0),monthlyRevenue=visible.filter(q=>{const d=new Date(q.date);return d.getMonth()===month&&d.getFullYear()===now.getFullYear()}).reduce((s,q)=>s+Number(q.quote||0),0);
+  const visible=state.filter(q=>jobStatus(q)!=='Archived'),completedJobs=state.filter(q=>q.completedAt||q.completed===true||jobStatus(q)==='Completed'),outstanding=visible.filter(q=>!paid(q)).reduce((s,q)=>s+Number(q.quote||0),0);
+  const completedOn=(q,start,end)=>{const d=new Date(q.completedAt||q.date);return d>=start&&(end?d<end:true)};
+  const dayEnd=new Date(day);dayEnd.setDate(dayEnd.getDate()+1);
+  const dailyCompleted=completedJobs.filter(q=>completedOn(q,new Date(day),dayEnd));
+  const weeklyCompleted=completedJobs.filter(q=>completedOn(q,weekStart));
+  const monthlyStart=new Date(now.getFullYear(),month,1),monthlyEnd=new Date(now.getFullYear(),month+1,1);
+  const monthlyCompleted=completedJobs.filter(q=>completedOn(q,monthlyStart,monthlyEnd));
+  const daily=dailyCompleted.reduce((s,q)=>s+Number(q.profit||0),0),weekly=weeklyCompleted.reduce((s,q)=>s+Number(q.profit||0),0),monthly=monthlyCompleted.reduce((s,q)=>s+Number(q.profit||0),0);
+  const dailyRevenue=dailyCompleted.reduce((s,q)=>s+Number(q.quote||0),0),monthlyRevenue=monthlyCompleted.reduce((s,q)=>s+Number(q.quote||0),0);
   if($('dailyRevenue'))$('dailyRevenue').textContent=money(dailyRevenue);if($('dailyProfit'))$('dailyProfit').textContent=money(daily);if($('weeklyProfit'))$('weeklyProfit').textContent=money(weekly);if($('monthlyProfit'))$('monthlyProfit').textContent=money(monthly);if($('monthlyRevenue'))$('monthlyRevenue').textContent=money(monthlyRevenue);if($('outstandingTotal'))$('outstandingTotal').textContent=money(outstanding);
   if($('dashboardAiLearning'))$('dashboardAiLearning').textContent=getAiLearningStatus();
   const wk=visible.filter(q=>new Date(q.date)>=weekStart),quoted=wk.reduce((s,q)=>s+Number(q.quote||0),0),paidTotal=wk.filter(paid).reduce((s,q)=>s+Number(q.quote||0),0),out=wk.filter(q=>!paid(q)).reduce((s,q)=>s+Number(q.quote||0),0),profit=wk.reduce((s,q)=>s+Number(q.profit||0),0);
-  if($('weekJobCount'))$('weekJobCount').textContent=wk.length;if($('weekQuoted'))$('weekQuoted').textContent=money(quoted);if($('weekPaid'))$('weekPaid').textContent=money(paidTotal);if($('weekOutstanding'))$('weekOutstanding').textContent=money(out);if($('weekProfit'))$('weekProfit').textContent=money(profit);
-  const completed=visible.filter(q=>jobStatus(q)==='Completed').length;if($('totalJobsStat'))$('totalJobsStat').textContent=visible.length;if($('averageJobStat'))$('averageJobStat').textContent=money(visible.length?visible.reduce((s,q)=>s+Number(q.quote||0),0)/visible.length:0);if($('completedJobsStat'))$('completedJobsStat').textContent=completed;if($('paidJobsStat'))$('paidJobsStat').textContent=visible.filter(paid).length;
+  if($('weekJobCount'))$('weekJobCount').textContent=weeklyCompleted.length;if($('weekQuoted'))$('weekQuoted').textContent=money(quoted);if($('weekPaid'))$('weekPaid').textContent=money(paidTotal);if($('weekOutstanding'))$('weekOutstanding').textContent=money(out);if($('weekProfit'))$('weekProfit').textContent=money(profit);
+  const completed=completedJobs.length;if($('totalJobsStat'))$('totalJobsStat').textContent=visible.length+completedJobs.filter(q=>jobStatus(q)==='Archived').length;if($('averageJobStat'))$('averageJobStat').textContent=money(completedJobs.length?completedJobs.reduce((s,q)=>s+Number(q.quote||0),0)/completedJobs.length:0);if($('completedJobsStat'))$('completedJobsStat').textContent=completed;if($('paidJobsStat'))$('paidJobsStat').textContent=completedJobs.filter(paid).length;
   const recent=visible.slice(0,8);if($('savedList'))$('savedList').innerHTML=recent.length?recent.map(q=>renderJobCard(q,state.indexOf(q),'overview')).join(''):'<p class="muted">No saved quotes or jobs yet.</p>';
   if($('jobsList'))renderJobsList();if($('paymentsList'))renderPaymentsList();
 }
