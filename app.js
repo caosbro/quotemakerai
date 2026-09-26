@@ -634,7 +634,7 @@ function ownerTab(tab){
   if(tab==='overview'||tab==='jobs'||tab==='payments'||tab==='calendar'||tab==='invoices')renderDashboard();
   if(tab==='invoices')renderInvoices();
   if(tab==='calendar')renderCalendar();
-  if(tab==='settings'){renderDisposalCostSettings();loadBusinessSettings();renderDisposalHistory();renderLearningRecords();renderInvoices();}
+  if(tab==='settings'){renderDisposalCostSettings();loadBusinessSettings();renderDisposalHistory();renderLearningRecords();}
 }
 function jobStatus(q){return q.status||'Quoted'}
 function statusLabel(s){return {'Pending Acceptance':'⏳ Pending Acceptance',Accepted:'✅ Accepted',Denied:'❌ Denied',Quoted:'📝 Quoted',Booked:'📅 Booked',Completed:'✅ Completed',Cancelled:'❌ Cancelled',Archived:'📦 Archived'}[s]||s}
@@ -670,7 +670,7 @@ function completeJob(i){
   q.status='Completed';q.completedAt=q.completedAt||todayISO();
   ensureInvoiceForJob(q);
   saveState();renderDashboard();renderInvoices();
-  openJobEditor(i);
+  ownerTab('invoices');
   toast(`Job completed ✓ Invoice ${q.invoiceNumber} created automatically`);
 }
 function cancelJob(i){const q=state[i];if(!q)return;if(!confirm('Cancel this job?'))return;q.status='Cancelled';q.cancelledAt=todayISO();saveState();renderDashboard();toast('Job cancelled')}
@@ -817,7 +817,7 @@ function sendInvoiceEmail(i){
 }
 async function shareInvoicePdf(i){return invoiceJob(i)}
 function renderInvoices(){
-  const els=[$('invoicesList'),$('ownerInvoicesList'),$('ownerOverviewInvoicesList')].filter(Boolean);if(!els.length)return;
+  const els=[$('invoicesList'),$('ownerOverviewInvoicesList')].filter(Boolean);if(!els.length)return;
   const rows=state.map((q,i)=>({q,i})).filter(x=>x.q.invoiceNumber||x.q.documentType==='Invoice');
   const html=rows.length?rows.slice().reverse().map(({q,i})=>{
     const inv=q.invoiceNumber||q.number;
@@ -904,7 +904,7 @@ function bindEnhanced(){
   document.querySelectorAll('[data-owner-tab]').forEach(b=>b.onclick=()=>ownerTab(b.dataset.ownerTab));
   document.querySelectorAll('[data-open-invoices]').forEach(b=>b.onclick=()=>ownerTab('invoices'));
   document.querySelectorAll('[data-job-filter]').forEach(b=>b.onclick=()=>{jobsFilter=b.dataset.jobFilter;renderJobsList()});
-  $('savedList')?.addEventListener('click',handleJobAction);$('jobsList')?.addEventListener('click',handleJobAction);$('paymentsList')?.addEventListener('click',handleJobAction);$('calendarJobs')?.addEventListener('click',handleJobAction);$('invoicesList')?.addEventListener('click',handleInvoiceAction);$('ownerInvoicesList')?.addEventListener('click',handleInvoiceAction);
+  $('savedList')?.addEventListener('click',handleJobAction);$('jobsList')?.addEventListener('click',handleJobAction);$('paymentsList')?.addEventListener('click',handleJobAction);$('calendarJobs')?.addEventListener('click',handleJobAction);$('invoicesList')?.addEventListener('click',handleInvoiceAction);
   $('calendarGrid')?.addEventListener('click',e=>{const b=e.target.closest('[data-cal-date]');if(b)renderCalendarJobs(b.dataset.calDate)});
   $('closeLoadModal')?.addEventListener('click',()=>$('loadModal').classList.add('hidden'));$('addLoadBtn')?.addEventListener('click',addLoad);$('loadList')?.addEventListener('click',e=>{const b=e.target.closest('[data-remove-load]');if(b)removeLoad(Number(b.dataset.removeLoad))});
   $('calendarPrev')?.addEventListener('click',()=>{calendarCursor.setMonth(calendarCursor.getMonth()-1);renderCalendar()});$('calendarNext')?.addEventListener('click',()=>{calendarCursor.setMonth(calendarCursor.getMonth()+1);renderCalendar()});
