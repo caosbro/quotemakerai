@@ -263,6 +263,17 @@
       </div>
       <div id="aiMediaCount" class="ai-media-count">No photo added yet.</div>
       <div id="aiPreviews" class="ai-previews"></div>
+      <div id="aiCropEditor" class="ai-crop-editor hidden">
+        <div class="ai-crop-head"><strong id="aiCropTitle">Select what needs removing</strong><span id="aiCropHint">Drag the box over the rubbish/items you want the AI to analyse.</span></div>
+        <div id="aiCropStage" class="ai-crop-stage">
+          <img id="aiCropImage" alt="Photo selection">
+          <div id="aiCropSelection" class="ai-crop-selection"><div class="ai-crop-handle" aria-hidden="true"></div></div>
+        </div>
+        <div class="ai-crop-actions">
+          <button type="button" id="aiUseFullPhotoBtn">USE FULL PHOTO</button>
+          <button type="button" class="primary" id="aiCropContinueBtn">CROP &amp; CONTINUE</button>
+        </div>
+      </div>
       <div id="aiLoading" class="ai-loading hidden">Looking at all photos and estimating the rubbish…</div>
       <div id="aiResult" class="ai-result hidden"></div>
       <div class="ai-learning card-lite">

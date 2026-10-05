@@ -256,6 +256,9 @@ function bindCore(){
   $("closeAiBtn").onclick=closeAiPicture;
   $("aiCameraInput").onchange=handleAiPhoto;
   $("aiFileInput").onchange=handleAiPhoto;
+  $("aiCropContinueBtn").onclick=()=>finishCurrentCrop(false);
+  $("aiUseFullPhotoBtn").onclick=()=>finishCurrentCrop(true);
+  initAiCropInteractions();
   $("saveAiLearningBtn").onclick=saveAiLearning;
   $("addAiQuoteBtn").onclick=addAiEstimateToQuote;
   $("savedBtn").onclick=showDashboard;
@@ -499,6 +502,11 @@ async function makePdfQuote(){
 let aiPhotoData=null;
 let aiMediaData=[];
 let aiEstimate=null;
+let aiCropQueue=[];
+let aiCropIndex=0;
+let aiCropRaw="";
+let aiCropRect={x:.075,y:.075,w:.85,h:.85};
+let aiCropDrag=null;
 function getGeminiKey(){return sessionStorage.getItem("epc_gemini_key")||""}
 function openGeminiKeySetup(){
   $("geminiKeyInput").value=getGeminiKey();
@@ -514,7 +522,7 @@ function saveGeminiKey(){
 }
 function clearGeminiKey(){sessionStorage.removeItem("epc_gemini_key");$("geminiKeyInput").value="";toast("AI key cleared")}
 function openAiPicture(){
-  aiPhotoData=null;aiMediaData=[];aiEstimate=null;
+  aiPhotoData=null;aiMediaData=[];aiEstimate=null;aiCropQueue=[];aiCropIndex=0;aiCropRaw="";aiCropDrag=null;
   $("aiPreview")?.classList.add("hidden");
   $("aiPreviews").innerHTML="";
   $("aiMediaCount").textContent="No photos added yet.";
@@ -522,17 +530,50 @@ function openAiPicture(){
   $("saveAiLearningBtn").classList.add("hidden");
   $("aiActualDisposalCost").value="";
   $("aiLearningStatus").textContent=getAiLearningStatus();
-  $("aiLoading").classList.add("hidden");$("aiResult").classList.add("hidden");$("aiResult").innerHTML="";
+  $("aiLoading").classList.add("hidden");$("aiResult").classList.add("hidden");$("aiResult").innerHTML="";$("aiCropEditor").classList.add("hidden");
   $("aiCameraInput").value="";$("aiFileInput").value="";
   $("aiModal").classList.remove("hidden");
 }
 function closeAiPicture(){$("aiModal").classList.add("hidden")}
 function updateAiMediaUi(){
   const count=aiMediaData.length;
-  $("aiMediaCount").textContent=count?`${count} photo${count===1?'':'s'} ready to analyse.`:"No photos added yet.";
+  const queued=aiCropQueue.length;
+  $("aiMediaCount").textContent=count?`${count} photo${count===1?'':'s'} ready to analyse.`:(queued?`Selecting photo ${aiCropIndex+1} of ${queued}…`:"No photos added yet.");
   $("aiPreviews").innerHTML=count?aiMediaData.map((m,i)=>`<div><img class="ai-thumb" src="${m.data}" alt="AI rubbish photo ${i+1}"></div>`).join(''):'';
 }
 function readFileAsDataUrl(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(new Error('Could not read the photo.'));r.readAsDataURL(file)})}
+function setCropRect(){const s=$("aiCropSelection");if(!s)return;s.style.left=(aiCropRect.x*100)+'%';s.style.top=(aiCropRect.y*100)+'%';s.style.width=(aiCropRect.w*100)+'%';s.style.height=(aiCropRect.h*100)+'%'}
+function openCropForCurrent(){
+  if(aiCropIndex>=aiCropQueue.length){$("aiCropEditor").classList.add("hidden");updateAiMediaUi();analyseAiMedia();return}
+  aiCropRaw=aiCropQueue[aiCropIndex];aiCropRect={x:.075,y:.075,w:.85,h:.85};
+  $("aiCropImage").src=aiCropRaw;$("aiCropTitle").textContent=`Select what needs removing · photo ${aiCropIndex+1} of ${aiCropQueue.length}`;
+  $("aiCropHint").textContent="Drag the box over the rubbish/items you want the AI to analyse. Resize from the bottom-right corner.";
+  $("aiCropEditor").classList.remove("hidden");setCropRect();updateAiMediaUi();
+}
+async function finishCurrentCrop(fullPhoto=false){
+  if(!aiCropRaw)return;
+  try{
+    let output=aiCropRaw;
+    if(!fullPhoto){
+      output=await cropAiImage(aiCropRaw,aiCropRect);
+    }
+    output=await compressAiImage(output);
+    aiMediaData.push({kind:'image',data:output});
+    aiPhotoData=aiMediaData[0]?.data||null;aiCropIndex++;aiCropRaw="";
+    if(aiCropIndex<aiCropQueue.length){openCropForCurrent();}else{$("aiCropEditor").classList.add("hidden");updateAiMediaUi();analyseAiMedia();}
+  }catch(err){toast(err.message||'Could not prepare the selected area.')}
+}
+function cropAiImage(dataUrl,rect){
+  return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const sx=Math.max(0,Math.round(img.naturalWidth*rect.x)),sy=Math.max(0,Math.round(img.naturalHeight*rect.y));const sw=Math.max(1,Math.min(img.naturalWidth-sx,Math.round(img.naturalWidth*rect.w))),sh=Math.max(1,Math.min(img.naturalHeight-sy,Math.round(img.naturalHeight*rect.h)));const canvas=document.createElement('canvas');canvas.width=sw;canvas.height=sh;canvas.getContext('2d').drawImage(img,sx,sy,sw,sh,0,0,sw,sh);resolve(canvas.toDataURL('image/jpeg',.9))};img.onerror=()=>reject(new Error('The photo could not be prepared.'));img.src=dataUrl})
+}
+function initAiCropInteractions(){
+  const stage=$("aiCropStage"),selection=$("aiCropSelection"),handle=$("aiCropSelection")?.querySelector('.ai-crop-handle');if(!stage||!selection||!handle)return;
+  const start=(mode,e)=>{e.preventDefault();const p=e.touches?.[0]||e;aiCropDrag={mode,startX:p.clientX,startY:p.clientY,rect:{...aiCropRect}}};
+  const move=e=>{if(!aiCropDrag)return;e.preventDefault();const p=e.touches?.[0]||e,box=stage.getBoundingClientRect(),dx=(p.clientX-aiCropDrag.startX)/box.width,dy=(p.clientY-aiCropDrag.startY)/box.height,r=aiCropDrag.rect;if(aiCropDrag.mode==='move'){aiCropRect.x=Math.min(1-r.w,Math.max(0,r.x+dx));aiCropRect.y=Math.min(1-r.h,Math.max(0,r.y+dy));}else{const min=.15;aiCropRect.w=Math.min(1-r.x,Math.max(min,r.w+dx));aiCropRect.h=Math.min(1-r.y,Math.max(min,r.h+dy));}setCropRect()};
+  const end=()=>{aiCropDrag=null};
+  selection.addEventListener('pointerdown',e=>{if(e.target===handle)return;start('move',e)});handle.addEventListener('pointerdown',e=>start('resize',e));
+  window.addEventListener('pointermove',move,{passive:false});window.addEventListener('pointerup',end);stage.addEventListener('touchmove',move,{passive:false});stage.addEventListener('touchend',end);
+}
 async function handleAiPhoto(e){
   const files=Array.from(e.target.files||[]);e.target.value='';if(!files.length)return;
   const images=files.filter(f=>f.type.startsWith('image/'));
@@ -540,10 +581,9 @@ async function handleAiPhoto(e){
   if(images.length>6){toast('Please choose up to 6 photos at a time');return}
   if(images.some(f=>f.size>12*1024*1024)){toast('One of the photos is too large — choose photos under 12MB each');return}
   try{
-    const prepared=[];
-    for(const file of images){const raw=await readFileAsDataUrl(file);prepared.push(await compressAiImage(raw));}
-    aiMediaData=prepared.map(data=>({kind:'image',data}));
-    aiPhotoData=prepared[0]||null;updateAiMediaUi();analyseAiMedia();
+    const prepared=[];for(const file of images)prepared.push(await readFileAsDataUrl(file));
+    aiMediaData=[];aiCropQueue=prepared;aiCropIndex=0;aiEstimate=null;$("aiResult").classList.add('hidden');$("addAiQuoteBtn").classList.add('hidden');$("saveAiLearningBtn").classList.add('hidden');
+    openCropForCurrent();
   }catch(err){toast(err.message||'Could not prepare the photos.')}
 }
 function saveAiLearning(){
